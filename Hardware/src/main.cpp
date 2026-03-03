@@ -47,31 +47,41 @@ void soundIndication(float distance){
     if(distance > 20){
         noTone(BUZZER);
     } else if (distance <= 20 && distance > 13){
-        tone(BUZZER, 500, 100);
-        delay(900);
+        tone(BUZZER, 500);
+        delay(200);
+        noTone(BUZZER);
+        delay(600);
     } else if(distance <= 13 && distance > 6){
-        tone(BUZZER, 1000, 100);
-        delay(400);
+        tone(BUZZER, 1000);
+        delay(150);
+        noTone(BUZZER);
+        delay(250);
     } else {
         tone(BUZZER, 2000);
+        delay(100);
+        noTone(BUZZER);
+        delay(100);
     }
 }
 
 void loop() {
-    soundIndication(18);
-    delay(2000);
-    // soundIndication(18);
-    // delay(2000);
-    // soundIndication(10);
-    // delay(2000);
-    // soundIndication(3);
-    // delay(2000);
+    Serial.println("Testing distance 25cm");
+    soundIndication(25);
     lightIndication(25);
-    delay(2000);
+    
+    Serial.println("Testing distance 18cm");
+    soundIndication(18);
     lightIndication(18);
-    delay(2000);
+    
+    Serial.println("Testing distance 10cm");
+    soundIndication(10);
     lightIndication(10);
-    delay(2000);
+    
+    Serial.println("Testing distance 3cm");
+    soundIndication(3);
     lightIndication(3);
-    delay(2000);
+    
+    // Stop all
+    noTone(BUZZER);
+    delay(1000);
 }
