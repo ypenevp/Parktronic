@@ -13,7 +13,7 @@
 #define RGB_PIN 14
 #define RGB_COUNT 1
 
-Adafruit_NeoPixel rgb(RGB_COUNT, RGB_PIN, NEO_GRB + NEO_KHZ800); // very important
+Adafruit_NeoPixel rgb(RGB_COUNT, RGB_PIN, NEO_GRB + NEO_KHZ800);
 
 float distance;
 float meter;
@@ -106,30 +106,24 @@ void loop()
 
   duration = pulseIn(ECHO, HIGH);
 
-  if (duration >= 38000)
+  if (duration == 0 || duration >= 38000)
   {
+    rgb.setPixelColor(0, rgb.Color(0, 255, 0));
+    rgb.show();
     Serial.println("Out of range");
   }
   else
   {
+    rgb.setPixelColor(0, rgb.Color(255, 0, 0));
+    rgb.show();
+
     distance = duration / 58.0;
     // meter = distance / 100.0;
 
     Serial.print(distance);
-    Serial.print(" cm\t");
+    Serial.println(" cm");
 
     soundIndication(distance);
     lightIndication(distance);
-    rgb.setPixelColor(0, rgb.Color(255, 0, 0));
-    rgb.show();
-    delay(1000);
-
-    rgb.setPixelColor(0, rgb.Color(0, 255, 0));
-    rgb.show();
-    delay(1000);
-
-    rgb.setPixelColor(0, rgb.Color(0, 0, 255));
-    rgb.show();
-    delay(1000);
   }
 }
