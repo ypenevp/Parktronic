@@ -1,5 +1,9 @@
 #include <Arduino.h>
 #include <Adafruit_NeoPixel.h>
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
+
 
 #define TRIG 12
 #define ECHO 11
@@ -13,7 +17,12 @@
 #define RGB_PIN 14
 #define RGB_COUNT 1
 
+#define SCREEN_WIDTH 128
+#define SCREEN_HEIGHT 64
+
 Adafruit_NeoPixel rgb(RGB_COUNT, RGB_PIN, NEO_GRB + NEO_KHZ800);
+
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
 
 float distance;
 float meter;
@@ -31,11 +40,27 @@ void setup()
   rgb.begin();
   rgb.show();
 
+  if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
+    Serial.println(F("SSD1306 allocation failed"));
+    rgb.setPixelColor(0, rgb.Color(255, 0, 0));
+    rgb.show();
+    for(;;);
+  }
   pinMode(TRIG, OUTPUT);
   pinMode(ECHO, INPUT);
 
   digitalWrite(TRIG, LOW);
   delay(1000);
+
+  display.clearDisplay();
+
+  display.setTextSize(1);
+  display.setTextColor(WHITE);
+  display.setCursor(30, 0);
+  display.println("Welcome to");
+  display.setCursor(13, 8);
+  display.println(" Parktronic 3000");
+  display.display(); 
 }
 
 void lightIndication(float distance)
