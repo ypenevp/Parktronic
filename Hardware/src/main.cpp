@@ -46,19 +46,19 @@ void lightIndication(float distance)
     digitalWrite(YELLOW_LED, LOW);
     digitalWrite(RED_LED, LOW);
   }
-  else if (distance >= 13 && distance <= 20)
+  else if (distance > 13 && distance <= 20)
   {
     digitalWrite(GREEN_LED, HIGH);
     digitalWrite(RED_LED, LOW);
     digitalWrite(YELLOW_LED, LOW);
   }
-  else if (distance >= 6 && distance <= 13)
+  else if (distance > 6 && distance <= 13)
   {
     digitalWrite(YELLOW_LED, HIGH);
     digitalWrite(GREEN_LED, LOW);
     digitalWrite(RED_LED, LOW);
   }
-  else if (distance >= 0 && distance <= 6)
+  else if (distance > 0 && distance <= 6)
   {
     digitalWrite(RED_LED, HIGH);
     digitalWrite(GREEN_LED, LOW);
