@@ -23,11 +23,15 @@
 #define BUZZER_RESOLUTION 8 // 8-bit: 0–255
 #define BUZZER_VOLUME 128   // 50% duty cycle
 
+typedef unsigned long ulong;
+
 Adafruit_NeoPixel rgb(RGB_COUNT, RGB_PIN, NEO_GRB + NEO_KHZ800);
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
 
 float distance = 0;
-unsigned long duration = 0;
+ulong duration = 0;
+bool buzzerState = false;
+ulong lastChangeTime = 0;
 
 void buzzerTone(int frequency)
 {
@@ -43,30 +47,59 @@ void buzzerOff()
 
 void soundIndication(float dist)
 {
-  if (dist > 20)
+  ulong now = millis();
+
+  int toneFreq;
+  ulong onTime, offTime;
+
+  if (dist > 16)
   {
     buzzerOff();
+    buzzerState = false;
+    return;
   }
-  else if (dist > 13 && dist <= 20)
+  else if (dist > 11)
   {
-    buzzerTone(500);
-    delay(200);
-    buzzerOff();
-    delay(600);
+    toneFreq = 500;
+    onTime = 200;
+    offTime = 600;
   }
-  else if (dist > 6 && dist <= 13)
+  else if (dist > 5.5)
   {
-    buzzerTone(1000);
-    delay(150);
-    buzzerOff();
-    delay(250);
+    toneFreq = 1000;
+    onTime = 150;
+    offTime = 250;
+  }
+  else if (dist > 2.4)
+  {
+    toneFreq = 2000;
+    onTime = 100;
+    offTime = 100;
   }
   else
   {
     buzzerTone(2000);
-    delay(100);
-    buzzerOff();
-    delay(100);
+    buzzerState = true;
+    lastChangeTime = now;
+    return;
+  }
+
+  ulong waitTime = buzzerState ? onTime : offTime;
+
+  if (now - lastChangeTime >= waitTime)
+  {
+    lastChangeTime = now;
+
+    if (buzzerState)
+    {
+      buzzerOff();
+      buzzerState = false;
+    }
+    else
+    {
+      buzzerTone(toneFreq);
+      buzzerState = true;
+    }
   }
 }
 
@@ -76,12 +109,45 @@ void lightIndication(float dist)
   digitalWrite(YELLOW_LED, LOW);
   digitalWrite(RED_LED, LOW);
 
-  if (dist > 13 && dist <= 20)
+  if (dist > 11 && dist <= 16)
     digitalWrite(GREEN_LED, HIGH);
-  else if (dist > 6 && dist <= 13)
+  else if (dist > 5.5 && dist <= 11)
     digitalWrite(YELLOW_LED, HIGH);
-  else if (dist > 0 && dist <= 6)
+  else if (dist > 0 && dist <= 5.5)
     digitalWrite(RED_LED, HIGH);
+}
+
+void showHome()
+{
+  display.clearDisplay();
+  display.setTextSize(1);
+  display.setTextColor(WHITE);
+  display.setCursor(30, 0);
+  display.println("Welcome to");
+  display.setCursor(13, 8);
+  display.println("Parktronic 3000");
+
+  display.setTextSize(2);
+  display.setTextColor(WHITE);
+  display.setCursor(0, 16);
+
+  if( duration >= 38000){
+    display.printf("SAVE");
+  }
+  display.printf("%.1f cm", distance);
+
+  display.setTextSize(1);
+  display.setCursor(0, 32);
+  if (distance > 20)
+    display.println("Safe distance for now");
+  else if (distance > 13)
+    display.println("Getting closer...");
+  else if (distance > 6)
+    display.println("WARNING!!");
+  else
+    display.println("STOP!!!");
+
+  display.display();
 }
 
 void setup()
@@ -117,7 +183,6 @@ void setup()
   display.clearDisplay();
 }
 
-
 void loop()
 {
   digitalWrite(TRIG, LOW);
@@ -141,48 +206,23 @@ void loop()
 
     Serial.println("Out of range");
 
-    display.clearDisplay();
-    display.setTextSize(1);
-    display.setTextColor(WHITE);
-    display.setCursor(0, 0);
-    display.println("Out of range");
-    display.display();
+    // display.clearDisplay();
+    // display.setTextSize(1);
+    // display.setTextColor(WHITE);
+    // display.setCursor(0, 0);
+    // display.println("Out of range");
+    // display.display();
   }
   else
   {
     distance = duration / 58.0;
-    Serial.printf("Distance: %.1f cm\n", distance);
+    // Serial.printf("Distance: %.1f cm\n", distance);
 
     rgb.setPixelColor(0, rgb.Color(255, 0, 0));
     rgb.show();
 
     lightIndication(distance);
     soundIndication(distance);
-
-    display.clearDisplay();
-    display.setTextSize(1);
-    display.setTextColor(WHITE);
-    display.setCursor(30, 0);
-    display.println("Welcome to");
-    display.setCursor(13, 8);
-    display.println("Parktronic 3000");
-
-    display.setTextSize(2);
-    display.setTextColor(WHITE);
-    display.setCursor(0, 16);
-    display.printf("%.1f cm", distance);
-
-    display.setTextSize(1);
-    display.setCursor(0, 32);
-    if (distance > 20)
-      display.println("Safe distance for now");
-    else if (distance > 13)
-      display.println("Getting closer...");
-    else if (distance > 6)
-      display.println("WARNING!!");
-    else
-      display.println("STOP!!!");
-
-    display.display();
+    showHome();
   }
 }
