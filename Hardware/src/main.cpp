@@ -117,6 +117,32 @@ void lightIndication(float dist)
     digitalWrite(RED_LED, HIGH);
 }
 
+void setupHC_SR04(){
+    digitalWrite(TRIG, LOW);
+  delayMicroseconds(2);
+  digitalWrite(TRIG, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(TRIG, LOW);
+  duration = pulseIn(ECHO, HIGH);
+
+  distance = duration / 58.0;
+}
+
+void readHC_SR04() {
+  digitalWrite(TRIG, LOW);
+  delayMicroseconds(2);
+  digitalWrite(TRIG, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(TRIG, LOW);
+
+  duration = pulseIn(ECHO, HIGH, 30000); // timeout
+  if (duration == 0) {
+    distance = -1; // no echo
+  } else {
+    distance = duration / 58.0;
+  }
+}
+
 void showHome()
 {
   display.clearDisplay();
@@ -131,10 +157,13 @@ void showHome()
   display.setTextColor(WHITE);
   display.setCursor(0, 16);
 
-  if( duration >= 38000){
-    display.printf("SAVE");
-  }
+  if (duration >= 38000)
+  {
+    display.printf("SAFE");
+  } else {
   display.printf("%.1f cm", distance);
+
+  }
 
   display.setTextSize(1);
   display.setCursor(0, 32);
@@ -185,44 +214,9 @@ void setup()
 
 void loop()
 {
-  digitalWrite(TRIG, LOW);
-  delayMicroseconds(2);
-  digitalWrite(TRIG, HIGH);
-  delayMicroseconds(10);
-  digitalWrite(TRIG, LOW);
-
-  duration = pulseIn(ECHO, HIGH);
-
-  if (duration == 0 || duration >= 38000)
-  {
-    buzzerOff();
-
-    digitalWrite(GREEN_LED, LOW);
-    digitalWrite(YELLOW_LED, LOW);
-    digitalWrite(RED_LED, LOW);
-
-    rgb.setPixelColor(0, rgb.Color(0, 255, 0));
-    rgb.show();
-
-    Serial.println("Out of range");
-
-    // display.clearDisplay();
-    // display.setTextSize(1);
-    // display.setTextColor(WHITE);
-    // display.setCursor(0, 0);
-    // display.println("Out of range");
-    // display.display();
-  }
-  else
-  {
-    distance = duration / 58.0;
-    // Serial.printf("Distance: %.1f cm\n", distance);
-
-    rgb.setPixelColor(0, rgb.Color(255, 0, 0));
-    rgb.show();
-
-    lightIndication(distance);
-    soundIndication(distance);
-    showHome();
-  }
+  setupHC_SR04();
+  // Serial.printf("Distance: %.1f cm\n", distance);
+  lightIndication(distance);
+  soundIndication(distance);
+  showHome();
 }
