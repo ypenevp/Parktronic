@@ -23,6 +23,11 @@
 #define BUZZER_RESOLUTION 8 // 8-bit: 0–255
 #define BUZZER_VOLUME 128   // 50% duty cycle
 
+#define NOSOUND 16
+#define GREENSOUND 11
+#define YELLOWSOUND 5.5
+#define REDSOUND 2.4
+
 typedef unsigned long ulong;
 
 Adafruit_NeoPixel rgb(RGB_COUNT, RGB_PIN, NEO_GRB + NEO_KHZ800);
@@ -52,25 +57,25 @@ void soundIndication(float dist)
   int toneFreq;
   ulong onTime, offTime;
 
-  if (dist > 16)
+  if (dist > NOSOUND)
   {
     buzzerOff();
     buzzerState = false;
     return;
   }
-  else if (dist > 11)
+  else if (dist > GREENSOUND)
   {
     toneFreq = 500;
     onTime = 200;
     offTime = 600;
   }
-  else if (dist > 5.5)
+  else if (dist > YELLOWSOUND)
   {
     toneFreq = 1000;
     onTime = 150;
     offTime = 250;
   }
-  else if (dist > 2.4)
+  else if (dist > REDSOUND)
   {
     toneFreq = 2000;
     onTime = 100;
@@ -109,11 +114,11 @@ void lightIndication(float dist)
   digitalWrite(YELLOW_LED, LOW);
   digitalWrite(RED_LED, LOW);
 
-  if (dist > 11 && dist <= 16)
+  if (dist > GREENSOUND && dist <= NOSOUND)
     digitalWrite(GREEN_LED, HIGH);
-  else if (dist > 5.5 && dist <= 11)
+  else if (dist > YELLOWSOUND && dist <= GREENSOUND)
     digitalWrite(YELLOW_LED, HIGH);
-  else if (dist > 0 && dist <= 5.5)
+  else if (dist > 0 && dist <= YELLOWSOUND)
     digitalWrite(RED_LED, HIGH);
 }
 
