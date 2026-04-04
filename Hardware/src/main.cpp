@@ -28,6 +28,11 @@
 #define YELLOWSOUND 5.5
 #define REDSOUND 2.4
 
+#define LEFTMOTORS1 6
+#define LEFTMOTORS2 7
+#define RIGHTMOTORS1 15
+#define RIGHTMOTORS2 16
+
 typedef unsigned long ulong;
 
 Adafruit_NeoPixel rgb(RGB_COUNT, RGB_PIN, NEO_GRB + NEO_KHZ800);
@@ -122,7 +127,8 @@ void lightIndication(float dist)
     digitalWrite(RED_LED, HIGH);
 }
 
-void readHC_SR04() {
+void readHC_SR04()
+{
   digitalWrite(TRIG, LOW);
   delayMicroseconds(2);
   digitalWrite(TRIG, HIGH);
@@ -130,9 +136,12 @@ void readHC_SR04() {
   digitalWrite(TRIG, LOW);
 
   duration = pulseIn(ECHO, HIGH, 30000); // timeout
-  if (duration == 0) {
+  if (duration == 0)
+  {
     distance = -1; // no echo
-  } else {
+  }
+  else
+  {
     distance = duration / 58.0;
   }
 }
@@ -173,7 +182,6 @@ void readHC_SR04() {
 //   display.display();
 // }
 
-
 void drawSettingsIcon(int x, int y)
 {
   display.drawCircle(x + 6, y + 6, 3, WHITE);
@@ -201,14 +209,15 @@ void drawSettingsIcon(int x, int y)
 //   display.drawLine(x + 12, y + 9, x + 14, y + 10, WHITE);
 // }
 
-void drawAutoIcon(int x, int y) {
+void drawAutoIcon(int x, int y)
+{
   display.fillRect(x, y + 2, 2, 10, WHITE);
   display.fillRect(x + 4, y + 4, 9, 5, WHITE);
   display.fillRect(x + 5, y + 2, 6, 3, WHITE);
   display.fillRect(x + 6, y + 3, 4, 2, BLACK);
-  display.fillCircle(x + 6,  y + 10, 2, WHITE);
+  display.fillCircle(x + 6, y + 10, 2, WHITE);
   display.fillCircle(x + 11, y + 10, 2, WHITE);
-  display.fillCircle(x + 6,  y + 9, 1, BLACK);
+  display.fillCircle(x + 6, y + 9, 1, BLACK);
   display.fillCircle(x + 11, y + 9, 1, BLACK);
 }
 void showHome()
@@ -216,7 +225,7 @@ void showHome()
   display.clearDisplay();
   display.setTextColor(WHITE);
 
-  //RIGHT ICON COLUMN 
+  // RIGHT ICON COLUMN
   int colX = 110;
   drawSettingsIcon(colX, 2);
   drawAutoIcon(colX, 18);
@@ -224,14 +233,14 @@ void showHome()
   // line
   display.drawLine(105, 0, 105, 64, WHITE);
 
-  //TITLE
+  // TITLE
   display.setTextSize(1);
   display.setCursor(0, 0);
   display.println("PARKTRONIC 3000");
 
   display.drawLine(0, 10, 100, 10, WHITE);
 
-  //DISTANCE
+  // DISTANCE
   display.setTextSize(2);
 
   if (duration == 0 || duration >= 38000 || distance < 0)
@@ -245,7 +254,7 @@ void showHome()
     display.printf("%4.1fcm", distance);
   }
 
-  //STATUS TEXT
+  // STATUS TEXT
   display.setTextSize(1);
   display.setCursor(0, 44);
 
@@ -275,11 +284,47 @@ void showHome()
 
   display.println(status);
 
-  //BAR
+  // BAR
   display.drawRect(0, 56, 100, 6, WHITE);
   display.fillRect(0, 56, barWidth, 6, WHITE);
 
   display.display();
+}
+
+void moveForward()
+{
+  digitalWrite(LEFTMOTORS1, LOW);
+  digitalWrite(LEFTMOTORS2, HIGH);
+
+  digitalWrite(RIGHTMOTORS1, LOW);
+  digitalWrite(RIGHTMOTORS2, HIGH);
+}
+
+void moveBackward()
+{
+  digitalWrite(LEFTMOTORS1, HIGH);
+  digitalWrite(LEFTMOTORS2, LOW);
+
+  digitalWrite(RIGHTMOTORS1, HIGH);
+  digitalWrite(RIGHTMOTORS2, LOW);
+}
+
+void stopLeftMotors()
+{
+  digitalWrite(LEFTMOTORS1, LOW);
+  digitalWrite(LEFTMOTORS2, LOW);
+}
+
+void stopRightMotors()
+{
+  digitalWrite(RIGHTMOTORS1, LOW);
+  digitalWrite(RIGHTMOTORS2, LOW);
+}
+
+void stopMotors()
+{
+  stopLeftMotors();
+  stopRightMotors();
 }
 
 void setup()
@@ -293,33 +338,52 @@ void setup()
   pinMode(TRIG, OUTPUT);
   pinMode(ECHO, INPUT);
 
-  ledcSetup(BUZZER_CHANNEL, 1000, BUZZER_RESOLUTION);
-  ledcAttachPin(BUZZER, BUZZER_CHANNEL);
-  ledcWrite(BUZZER_CHANNEL, 0);
+  pinMode(LEFTMOTORS1, OUTPUT);
+  pinMode(LEFTMOTORS2, OUTPUT);
+  pinMode(RIGHTMOTORS1, OUTPUT);
+  pinMode(RIGHTMOTORS2, OUTPUT);
+  stopMotors();
 
-  rgb.begin();
-  rgb.show();
+  // ledcSetup(BUZZER_CHANNEL, 1000, BUZZER_RESOLUTION);
+  // ledcAttachPin(BUZZER, BUZZER_CHANNEL);
+  // ledcWrite(BUZZER_CHANNEL, 0);
 
-  if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C))
-  {
-    Serial.println(F("SSD1306 allocation failed"));
-    rgb.setPixelColor(0, rgb.Color(255, 0, 0));
-    rgb.show();
-    for (;;)
-      ;
-  }
+  // rgb.begin();
+  // rgb.show();
 
-  digitalWrite(TRIG, LOW);
-  delay(1000);
+  // if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C))
+  // {
+  //   Serial.println(F("SSD1306 allocation failed"));
+  //   rgb.setPixelColor(0, rgb.Color(255, 0, 0));
+  //   rgb.show();
+  //   for (;;)
+  //     ;
+  // }
 
-  display.clearDisplay();
+  // digitalWrite(TRIG, LOW);
+  // delay(1000);
+
+  // display.clearDisplay();
 }
 
 void loop()
 {
-  readHC_SR04();
-  // Serial.printf("Distance: %.1f cm\n", distance);
-  lightIndication(distance);
-  soundIndication(distance);
-  showHome();
+  // readHC_SR04();
+  // // Serial.printf("Distance: %.1f cm\n", distance);
+  // lightIndication(distance);
+  // soundIndication(distance);
+  // showHome();
+
+  moveForward();
+  Serial.printf("start ->");
+  delay(2000);
+  stopMotors();
+   Serial.printf("stop");
+  delay(1000);
+  moveBackward();
+   Serial.printf("start <-");
+  delay(2000);
+  stopMotors();
+   Serial.printf("stop");
+  delay(1000);
 }
