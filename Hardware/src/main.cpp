@@ -122,17 +122,6 @@ void lightIndication(float dist)
     digitalWrite(RED_LED, HIGH);
 }
 
-void setupHC_SR04(){
-    digitalWrite(TRIG, LOW);
-  delayMicroseconds(2);
-  digitalWrite(TRIG, HIGH);
-  delayMicroseconds(10);
-  digitalWrite(TRIG, LOW);
-  duration = pulseIn(ECHO, HIGH);
-
-  distance = duration / 58.0;
-}
-
 void readHC_SR04() {
   digitalWrite(TRIG, LOW);
   delayMicroseconds(2);
@@ -148,38 +137,147 @@ void readHC_SR04() {
   }
 }
 
+// void showHome()
+// {
+//   display.clearDisplay();
+//   display.setTextSize(1);
+//   display.setTextColor(WHITE);
+//   display.setCursor(30, 0);
+//   display.println("Welcome to");
+//   display.setCursor(13, 8);
+//   display.println("Parktronic 3000");
+
+//   display.setTextSize(2);
+//   display.setTextColor(WHITE);
+//   display.setCursor(12, 18);
+
+//   if (duration >= 38000 || duration == -1)
+//   {
+//     display.printf("SAFE");
+//   } else {
+//   display.printf("%.1f cm", distance);
+
+//   }
+
+//   display.setTextSize(1);
+//   display.setCursor(0, 32);
+//   if (distance > 20)
+//     display.println("Safe distance for now");
+//   else if (distance > 13)
+//     display.println("Getting closer...");
+//   else if (distance > 6)
+//     display.println("WARNING!!");
+//   else
+//     display.println("STOP!!!");
+
+//   display.display();
+// }
+
+
+void drawSettingsIcon(int x, int y)
+{
+  display.drawCircle(x + 6, y + 6, 3, WHITE);
+  display.drawLine(x + 6, y + 0, x + 6, y + 2, WHITE);
+  display.drawLine(x + 6, y + 10, x + 6, y + 12, WHITE);
+  display.drawLine(x + 0, y + 6, x + 2, y + 6, WHITE);
+  display.drawLine(x + 10, y + 6, x + 12, y + 6, WHITE);
+  display.drawLine(x + 2, y + 2, x + 3, y + 3, WHITE);
+  display.drawLine(x + 9, y + 9, x + 10, y + 10, WHITE);
+  display.drawLine(x + 9, y + 3, x + 10, y + 2, WHITE);
+  display.drawLine(x + 2, y + 10, x + 3, y + 9, WHITE);
+}
+
+// void drawAutoIcon(int x, int y)
+// {
+//   display.drawRect(x + 1, y + 5, 10, 4, WHITE);
+
+//   // wheels
+//   display.drawPixel(x + 3, y + 10, WHITE);
+//   display.drawPixel(x + 8, y + 10, WHITE);
+
+//   // distance waves (sensor signal)
+//   display.drawLine(x + 12, y + 5, x + 14, y + 4, WHITE);
+//   display.drawLine(x + 12, y + 7, x + 15, y + 7, WHITE);
+//   display.drawLine(x + 12, y + 9, x + 14, y + 10, WHITE);
+// }
+
+void drawAutoIcon(int x, int y) {
+  display.fillRect(x, y + 2, 2, 10, WHITE);
+  display.fillRect(x + 4, y + 4, 9, 5, WHITE);
+  display.fillRect(x + 5, y + 2, 6, 3, WHITE);
+  display.fillRect(x + 6, y + 3, 4, 2, BLACK);
+  display.fillCircle(x + 6,  y + 10, 2, WHITE);
+  display.fillCircle(x + 11, y + 10, 2, WHITE);
+  display.fillCircle(x + 6,  y + 9, 1, BLACK);
+  display.fillCircle(x + 11, y + 9, 1, BLACK);
+}
 void showHome()
 {
   display.clearDisplay();
+  display.setTextColor(WHITE);
+
+  //RIGHT ICON COLUMN 
+  int colX = 110;
+  drawSettingsIcon(colX, 2);
+  drawAutoIcon(colX, 18);
+
+  // line
+  display.drawLine(105, 0, 105, 64, WHITE);
+
+  //TITLE
   display.setTextSize(1);
-  display.setTextColor(WHITE);
-  display.setCursor(30, 0);
-  display.println("Welcome to");
-  display.setCursor(13, 8);
-  display.println("Parktronic 3000");
+  display.setCursor(0, 0);
+  display.println("PARKTRONIC 3000");
 
+  display.drawLine(0, 10, 100, 10, WHITE);
+
+  //DISTANCE
   display.setTextSize(2);
-  display.setTextColor(WHITE);
-  display.setCursor(0, 16);
 
-  if (duration >= 38000)
+  if (duration == 0 || duration >= 38000 || distance < 0)
   {
-    display.printf("SAFE");
-  } else {
-  display.printf("%.1f cm", distance);
-
+    display.setCursor(10, 18);
+    display.println("SAFE");
+  }
+  else
+  {
+    display.setCursor(0, 18);
+    display.printf("%4.1fcm", distance);
   }
 
+  //STATUS TEXT
   display.setTextSize(1);
-  display.setCursor(0, 32);
-  if (distance > 20)
-    display.println("Safe distance for now");
-  else if (distance > 13)
-    display.println("Getting closer...");
-  else if (distance > 6)
-    display.println("WARNING!!");
+  display.setCursor(0, 44);
+
+  String status;
+  int barWidth;
+
+  if (distance > NOSOUND || distance < 0)
+  {
+    status = "Clear";
+    barWidth = 0;
+  }
+  else if (distance > GREENSOUND)
+  {
+    status = "Approach";
+    barWidth = 35;
+  }
+  else if (distance > YELLOWSOUND)
+  {
+    status = "Warning";
+    barWidth = 65;
+  }
   else
-    display.println("STOP!!!");
+  {
+    status = "STOP";
+    barWidth = 100;
+  }
+
+  display.println(status);
+
+  //BAR
+  display.drawRect(0, 56, 100, 6, WHITE);
+  display.fillRect(0, 56, barWidth, 6, WHITE);
 
   display.display();
 }
@@ -219,7 +317,7 @@ void setup()
 
 void loop()
 {
-  setupHC_SR04();
+  readHC_SR04();
   // Serial.printf("Distance: %.1f cm\n", distance);
   lightIndication(distance);
   soundIndication(distance);
