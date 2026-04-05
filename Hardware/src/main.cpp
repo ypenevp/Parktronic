@@ -3,6 +3,7 @@
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
+#include <math.h>
 
 #define TRIG 12
 #define ECHO 11
@@ -33,15 +34,40 @@
 #define RIGHTMOTORS1 15
 #define RIGHTMOTORS2 16
 
+#define LEFT_ENABLE 3
+#define RIGHT_ENABLE 10
+
+#define LEFT_ENABLE_CHANNEL 1
+#define RIGHT_ENABLE_CHANNEL 2
+#define MOTOR_PWM_RESOLUTION 8
+#define MOTOR_PWM_FREQ 1000
+
+#define JOYSTICKX 18
+#define JOYSTICKY 17
+
+#define JOY_VCC 3.3
+#define JOY_ADC_MAX 4095
+#define JOY_THRESHOLD 0.15
+#define MIN_SPEED 70
+
+const float JOY_MID_X = 1.61;
+const float JOY_MID_Y = 1.56;
+
 typedef unsigned long ulong;
 
-Adafruit_NeoPixel rgb(RGB_COUNT, RGB_PIN, NEO_GRB + NEO_KHZ800);
+// Adafruit_NeoPixel rgb(RGB_COUNT, RGB_PIN, NEO_GRB + NEO_KHZ800);
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
+bool displayOK = false;
 
 float distance = 0;
 ulong duration = 0;
+ulong lastSensorRead = 0;
+
 bool buzzerState = false;
 ulong lastChangeTime = 0;
+
+int motorSpeedLeft = 0;
+int motorSpeedRight = 0;
 
 void buzzerTone(int frequency)
 {
@@ -95,11 +121,9 @@ void soundIndication(float dist)
   }
 
   ulong waitTime = buzzerState ? onTime : offTime;
-
   if (now - lastChangeTime >= waitTime)
   {
     lastChangeTime = now;
-
     if (buzzerState)
     {
       buzzerOff();
@@ -135,133 +159,66 @@ void readHC_SR04()
   delayMicroseconds(10);
   digitalWrite(TRIG, LOW);
 
-  duration = pulseIn(ECHO, HIGH, 30000); // timeout
-  if (duration == 0)
-  {
-    distance = -1; // no echo
-  }
-  else
-  {
-    distance = duration / 58.0;
-  }
+  duration = pulseIn(ECHO, HIGH, 30000);
+  distance = duration / 58.0;
 }
 
-// void showHome()
-// {
-//   display.clearDisplay();
-//   display.setTextSize(1);
-//   display.setTextColor(WHITE);
-//   display.setCursor(30, 0);
-//   display.println("Welcome to");
-//   display.setCursor(13, 8);
-//   display.println("Parktronic 3000");
+// 'autopilot', 20x15px
+const unsigned char epd_bitmap_autopilot[] PROGMEM = {
+    0x20, 0xf0, 0x40, 0x43, 0x9c, 0x20, 0x56, 0x06, 0xa0, 0x84, 0x02, 0x50, 0xac, 0xf3, 0x50, 0xaf,
+    0xff, 0x50, 0xaf, 0xff, 0x50, 0xac, 0xf3, 0x50, 0xa4, 0x62, 0x50, 0x16, 0x66, 0x80, 0x43, 0xfc,
+    0x20, 0x20, 0xf0, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 
-//   display.setTextSize(2);
-//   display.setTextColor(WHITE);
-//   display.setCursor(12, 18);
+// 'settings', 15x15px
+const unsigned char epd_bitmap_settings[] PROGMEM = {
+    0x03, 0x80, 0x17, 0xd0, 0x3f, 0xf8, 0x7f, 0xfc, 0x38, 0x38, 0x70, 0x1c, 0xf0, 0x1e, 0xf0, 0x1e,
+    0xf0, 0x1e, 0x70, 0x1c, 0x38, 0x38, 0x7f, 0xfc, 0x3f, 0xf8, 0x17, 0xd0, 0x03, 0x80};
 
-//   if (duration >= 38000 || duration == -1)
-//   {
-//     display.printf("SAFE");
-//   } else {
-//   display.printf("%.1f cm", distance);
+// 'backtohome', 20x20px
+const unsigned char epd_bitmap_backtohome[] PROGMEM = {
+    0x01, 0xf8, 0x00, 0x07, 0x0e, 0x00, 0x1c, 0x03, 0x00, 0x30, 0x00, 0x80, 0x20, 0x38, 0x40, 0x60,
+    0x78, 0x60, 0x40, 0xf0, 0x20, 0xc1, 0xe0, 0x20, 0x83, 0xc0, 0x30, 0x87, 0x80, 0x10, 0x87, 0x80,
+    0x10, 0x83, 0xc0, 0x30, 0xc1, 0xe0, 0x20, 0x40, 0xf0, 0x20, 0x60, 0x78, 0x60, 0x20, 0x38, 0x40,
+    0x10, 0x00, 0x80, 0x0c, 0x03, 0x00, 0x07, 0x9e, 0x00, 0x01, 0xf8, 0x00};
 
-//   }
-
-//   display.setTextSize(1);
-//   display.setCursor(0, 32);
-//   if (distance > 20)
-//     display.println("Safe distance for now");
-//   else if (distance > 13)
-//     display.println("Getting closer...");
-//   else if (distance > 6)
-//     display.println("WARNING!!");
-//   else
-//     display.println("STOP!!!");
-
-//   display.display();
-// }
-
-void drawSettingsIcon(int x, int y)
-{
-  display.drawCircle(x + 6, y + 6, 3, WHITE);
-  display.drawLine(x + 6, y + 0, x + 6, y + 2, WHITE);
-  display.drawLine(x + 6, y + 10, x + 6, y + 12, WHITE);
-  display.drawLine(x + 0, y + 6, x + 2, y + 6, WHITE);
-  display.drawLine(x + 10, y + 6, x + 12, y + 6, WHITE);
-  display.drawLine(x + 2, y + 2, x + 3, y + 3, WHITE);
-  display.drawLine(x + 9, y + 9, x + 10, y + 10, WHITE);
-  display.drawLine(x + 9, y + 3, x + 10, y + 2, WHITE);
-  display.drawLine(x + 2, y + 10, x + 3, y + 9, WHITE);
-}
-
-// void drawAutoIcon(int x, int y)
-// {
-//   display.drawRect(x + 1, y + 5, 10, 4, WHITE);
-
-//   // wheels
-//   display.drawPixel(x + 3, y + 10, WHITE);
-//   display.drawPixel(x + 8, y + 10, WHITE);
-
-//   // distance waves (sensor signal)
-//   display.drawLine(x + 12, y + 5, x + 14, y + 4, WHITE);
-//   display.drawLine(x + 12, y + 7, x + 15, y + 7, WHITE);
-//   display.drawLine(x + 12, y + 9, x + 14, y + 10, WHITE);
-// }
-
-void drawAutoIcon(int x, int y)
-{
-  display.fillRect(x, y + 2, 2, 10, WHITE);
-  display.fillRect(x + 4, y + 4, 9, 5, WHITE);
-  display.fillRect(x + 5, y + 2, 6, 3, WHITE);
-  display.fillRect(x + 6, y + 3, 4, 2, BLACK);
-  display.fillCircle(x + 6, y + 10, 2, WHITE);
-  display.fillCircle(x + 11, y + 10, 2, WHITE);
-  display.fillCircle(x + 6, y + 9, 1, BLACK);
-  display.fillCircle(x + 11, y + 9, 1, BLACK);
-}
 void showHome()
 {
+  if (!displayOK)
+    return;
+
   display.clearDisplay();
+  display.drawRect(0, 0, 128, 64, WHITE);
   display.setTextColor(WHITE);
 
   // RIGHT ICON COLUMN
-  int colX = 110;
-  drawSettingsIcon(colX, 2);
-  drawAutoIcon(colX, 18);
-
-  // line
+  int colX = 108;
+  display.drawBitmap(colX + 1, 2, epd_bitmap_settings, 15, 15, WHITE);
+  display.drawBitmap(colX - 1, 18, epd_bitmap_autopilot, 20, 15, WHITE);
   display.drawLine(105, 0, 105, 64, WHITE);
 
   // TITLE
   display.setTextSize(1);
-  display.setCursor(0, 0);
+  display.setCursor(4, 3);
   display.println("PARKTRONIC 3000");
-
-  display.drawLine(0, 10, 100, 10, WHITE);
+  display.drawLine(0, 12, 105, 12, WHITE);
 
   // DISTANCE
   display.setTextSize(2);
-
-  if (duration == 0 || duration >= 38000 || distance < 0)
+  if (duration == 0 || distance <= 0 || distance > NOSOUND)
   {
     display.setCursor(10, 18);
     display.println("SAFE");
   }
   else
   {
-    display.setCursor(0, 18);
+    display.setCursor(5, 18);
     display.printf("%4.1fcm", distance);
   }
 
   // STATUS TEXT
-  display.setTextSize(1);
-  display.setCursor(0, 44);
-
   String status;
   int barWidth;
-
-  if (distance > NOSOUND || distance < 0)
+  if (distance > NOSOUND || duration == 0)
   {
     status = "Clear";
     barWidth = 0;
@@ -281,21 +238,72 @@ void showHome()
     status = "STOP";
     barWidth = 100;
   }
-
+  display.setTextSize(1);
+  display.setCursor(3, 44);
   display.println(status);
 
   // BAR
-  display.drawRect(0, 56, 100, 6, WHITE);
-  display.fillRect(0, 56, barWidth, 6, WHITE);
+  display.drawRect(3, 56, 100, 6, WHITE);
+  display.fillRect(3, 56, barWidth, 6, WHITE);
 
   display.display();
+}
+
+void showSettings()
+{
+  if (!displayOK)
+    return;
+
+  display.clearDisplay();
+  display.drawRect(0, 0, 128, 64, WHITE);
+  display.setTextColor(WHITE);
+
+  int colX = 108;
+  display.drawBitmap(colX - 1, 16, epd_bitmap_backtohome, 20, 20, WHITE);
+  display.drawLine(105, 0, 105, 64, WHITE);
+
+  display.setTextSize(1);
+  display.setCursor(4, 3);
+  display.println("SETTINGS");
+  display.drawLine(0, 12, 128, 12, WHITE);
+
+  display.setTextSize(1);
+
+  const char *modes[] = {
+      "Light&Sound:",
+      "Light Only:",
+      "Sound Only:",
+      "None:"};
+
+  for (int i = 0; i < 4; i++)
+  {
+    display.setTextColor(WHITE);
+    display.drawCircle(5, 22 + i * 10, 2, WHITE);
+
+    display.setCursor(10, 20 + i * 10);
+    display.print(modes[i]);
+
+    display.setCursor(85, 20 + i * 10);
+    display.print("OFF");
+  }
+
+  display.display();
+}
+
+void setLeftSpeed(int speed)
+{
+  ledcWrite(LEFT_ENABLE_CHANNEL, constrain(speed, 0, 255));
+}
+
+void setRightSpeed(int speed)
+{
+  ledcWrite(RIGHT_ENABLE_CHANNEL, constrain(speed, 0, 255));
 }
 
 void moveForward()
 {
   digitalWrite(LEFTMOTORS1, LOW);
   digitalWrite(LEFTMOTORS2, HIGH);
-
   digitalWrite(RIGHTMOTORS1, LOW);
   digitalWrite(RIGHTMOTORS2, HIGH);
 }
@@ -304,7 +312,6 @@ void moveBackward()
 {
   digitalWrite(LEFTMOTORS1, HIGH);
   digitalWrite(LEFTMOTORS2, LOW);
-
   digitalWrite(RIGHTMOTORS1, HIGH);
   digitalWrite(RIGHTMOTORS2, LOW);
 }
@@ -325,6 +332,80 @@ void stopMotors()
 {
   stopLeftMotors();
   stopRightMotors();
+  setLeftSpeed(0);
+  setRightSpeed(0);
+}
+
+bool preciesJoystick(float volt, float target)
+{
+  return fabs(volt - target) < JOY_THRESHOLD;
+}
+
+void driveFromJoystick()
+{
+  float xVolt = (analogRead(JOYSTICKX) * JOY_VCC) / JOY_ADC_MAX;
+  float yVolt = (analogRead(JOYSTICKY) * JOY_VCC) / JOY_ADC_MAX;
+
+  float xOffset = xVolt - JOY_MID_X;
+  float yOffset = yVolt - JOY_MID_Y;
+
+  if (yOffset > JOY_THRESHOLD)
+  {
+    moveForward();
+    motorSpeedLeft = map((int)(yOffset * 1000),
+                         (int)(JOY_THRESHOLD * 1000),
+                         (int)(JOY_MID_Y * 1000), 0, 255);
+    motorSpeedRight = motorSpeedLeft;
+  }
+  else if (yOffset < -JOY_THRESHOLD)
+  {
+    if (distance < REDSOUND)
+    {
+      stopMotors();
+      return;
+    }
+    moveBackward();
+    motorSpeedLeft = map((int)(-yOffset * 1000),
+                         (int)(JOY_THRESHOLD * 1000),
+                         (int)(JOY_MID_Y * 1000), 0, 255);
+    motorSpeedRight = motorSpeedLeft;
+  }
+  else
+  {
+    motorSpeedLeft = 0;
+    motorSpeedRight = 0;
+  }
+
+  if (xOffset > JOY_THRESHOLD)
+  {
+    int xMapped = map((int)(xOffset * 1000),
+                      (int)(JOY_THRESHOLD * 1000),
+                      (int)((JOY_VCC - JOY_MID_X) * 1000), 0, 255);
+    motorSpeedLeft = constrain(motorSpeedLeft + xMapped, 0, 255);
+    motorSpeedRight = constrain(motorSpeedRight - xMapped, 0, 255);
+  }
+  else if (xOffset < -JOY_THRESHOLD)
+  {
+    int xMapped = map((int)(-xOffset * 1000),
+                      (int)(JOY_THRESHOLD * 1000),
+                      (int)(JOY_MID_X * 1000), 0, 255);
+    motorSpeedLeft = constrain(motorSpeedLeft - xMapped, 0, 255);
+    motorSpeedRight = constrain(motorSpeedRight + xMapped, 0, 255);
+  }
+
+  if (motorSpeedLeft < MIN_SPEED)
+    motorSpeedLeft = 0;
+  if (motorSpeedRight < MIN_SPEED)
+    motorSpeedRight = 0;
+
+  if (motorSpeedLeft == 0 && motorSpeedRight == 0)
+    stopMotors();
+
+  setLeftSpeed(motorSpeedLeft);
+  setRightSpeed(motorSpeedRight);
+
+  Serial.printf("X: %.3fV | Y: %.3fV | L: %3d | R: %3d\n",
+                xVolt, yVolt, motorSpeedLeft, motorSpeedRight);
 }
 
 void setup()
@@ -342,48 +423,54 @@ void setup()
   pinMode(LEFTMOTORS2, OUTPUT);
   pinMode(RIGHTMOTORS1, OUTPUT);
   pinMode(RIGHTMOTORS2, OUTPUT);
-  stopMotors();
 
-  // ledcSetup(BUZZER_CHANNEL, 1000, BUZZER_RESOLUTION);
-  // ledcAttachPin(BUZZER, BUZZER_CHANNEL);
-  // ledcWrite(BUZZER_CHANNEL, 0);
+  ledcSetup(LEFT_ENABLE_CHANNEL, MOTOR_PWM_FREQ, MOTOR_PWM_RESOLUTION);
+  ledcSetup(RIGHT_ENABLE_CHANNEL, MOTOR_PWM_FREQ, MOTOR_PWM_RESOLUTION);
+  ledcAttachPin(LEFT_ENABLE, LEFT_ENABLE_CHANNEL);
+  ledcAttachPin(RIGHT_ENABLE, RIGHT_ENABLE_CHANNEL);
+
+  ledcSetup(BUZZER_CHANNEL, 1000, BUZZER_RESOLUTION);
+  ledcAttachPin(BUZZER, BUZZER_CHANNEL);
+  ledcWrite(BUZZER_CHANNEL, 0);
 
   // rgb.begin();
   // rgb.show();
+  Wire.begin(8, 9);
 
-  // if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C))
-  // {
-  //   Serial.println(F("SSD1306 allocation failed"));
-  //   rgb.setPixelColor(0, rgb.Color(255, 0, 0));
-  //   rgb.show();
-  //   for (;;)
-  //     ;
-  // }
+  displayOK = display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
 
-  // digitalWrite(TRIG, LOW);
-  // delay(1000);
+  if (!displayOK)
+  {
+    Serial.println("SSD1306 NOT detected -> continuing without display");
+  }
+  else
+  {
+    display.clearDisplay();
+    display.display();
+  }
 
-  // display.clearDisplay();
+  analogReadResolution(12);
+
+  stopMotors();
+  digitalWrite(TRIG, LOW);
+  delay(1000);
 }
 
 void loop()
 {
-  // readHC_SR04();
-  // // Serial.printf("Distance: %.1f cm\n", distance);
-  // lightIndication(distance);
-  // soundIndication(distance);
-  // showHome();
+  ulong now = millis();
 
-  moveForward();
-  Serial.printf("start ->");
-  delay(2000);
-  stopMotors();
-   Serial.printf("stop");
-  delay(1000);
-  moveBackward();
-   Serial.printf("start <-");
-  delay(2000);
-  stopMotors();
-   Serial.printf("stop");
-  delay(1000);
+  if (now - lastSensorRead >= 100)
+  {
+    lastSensorRead = now;
+    readHC_SR04();
+    // lightIndication(distance);
+    // soundIndication(distance);
+  }
+
+  showHome();
+  delay(5000);
+  showSettings();
+  driveFromJoystick();
+  delay(5000);
 }
