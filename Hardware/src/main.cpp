@@ -54,6 +54,9 @@
 #define JOY_THRESHOLD 0.15
 #define MIN_SPEED 70
 
+#define BUTTON_NEXT 14
+#define BUTTON_OK 13
+
 #define BLE_TIMEOUT 300
 BLEServer *pServer = nullptr;
 bool deviceConnected = false;
@@ -79,6 +82,30 @@ ulong lastChangeTime = 0;
 
 int motorSpeedLeft = 0;
 int motorSpeedRight = 0;
+
+// ─── Navigation state ────────────────────────────────────────────────────────
+
+enum Page { PAGE_HOME = 0, PAGE_SETTINGS = 1 };
+
+Page currentPage = PAGE_HOME;
+
+// Settings page: which option is currently highlighted (0–3)
+int settingsSelectedIndex = 0;
+int settingsModeActive = 0; // which mode is activated (0 = Light&Sound, etc.)
+
+// Button debounce
+bool lastNextState = false;
+bool lastOkState = false;
+ulong lastNextPress = 0;
+ulong lastOkPress = 0;
+#define DEBOUNCE_MS 200
+
+// Animation state for NEXT button highlight blink
+bool animBlink = false;
+ulong lastAnimTime = 0;
+#define ANIM_INTERVAL 300
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 void buzzerTone(int frequency)
 {
@@ -198,6 +225,18 @@ const unsigned char epd_bitmap_backtohome[] PROGMEM = {
     0x10, 0x83, 0xc0, 0x30, 0xc1, 0xe0, 0x20, 0x40, 0xf0, 0x20, 0x60, 0x78, 0x60, 0x20, 0x38, 0x40,
     0x10, 0x00, 0x80, 0x0c, 0x03, 0x00, 0x07, 0x9e, 0x00, 0x01, 0xf8, 0x00};
 
+// ─── Draw helpers ─────────────────────────────────────────────────────────────
+
+// Draws the animated blink box around the currently focused icon/button.
+// Called from showHome() and showSettings() when animBlink is true.
+void drawNextHighlight(int x, int y, int w, int h)
+{
+  // Inverted blinking rectangle to show which button NEXT will cycle to
+  display.drawRect(x - 1, y - 1, w + 2, h + 2, WHITE);
+}
+
+// ─── Page renderers ───────────────────────────────────────────────────────────
+
 void showHome()
 {
   if (!displayOK)
@@ -208,7 +247,13 @@ void showHome()
   display.setTextColor(WHITE);
 
   int colX = 108;
+
+  // Settings icon – highlight when animBlink is on and we're on HOME page
+  // (NEXT from home cycles to Settings page, so highlight the settings icon)
   display.drawBitmap(colX + 1, 2, epd_bitmap_settings, 15, 15, WHITE);
+  if (animBlink)
+    drawNextHighlight(colX, 1, 17, 17);
+
   display.drawBitmap(colX - 1, 18, epd_bitmap_autopilot, 20, 15, WHITE);
   display.drawLine(105, 0, 105, 64, WHITE);
 
@@ -272,7 +317,13 @@ void showSettings()
   display.setTextColor(WHITE);
 
   int colX = 108;
+
+  // Back-to-home icon – highlight when animBlink is on and we're on SETTINGS page
+  // (NEXT from settings cycles back to Home page)
   display.drawBitmap(colX - 1, 16, epd_bitmap_backtohome, 20, 20, WHITE);
+  if (animBlink)
+    drawNextHighlight(colX - 2, 15, 22, 22);
+
   display.drawLine(105, 0, 105, 64, WHITE);
 
   display.setTextSize(1);
@@ -283,15 +334,121 @@ void showSettings()
   const char *modes[] = {"Light&Sound:", "Light Only:", "Sound Only:", "None:"};
   for (int i = 0; i < 4; i++)
   {
-    display.drawCircle(5, 22 + i * 10, 2, WHITE);
-    display.setCursor(10, 20 + i * 10);
+    int yRow = 22 + i * 10;
+
+    // Highlight the currently selected row (OK will activate it)
+    if (i == settingsSelectedIndex)
+    {
+      display.fillRect(2, yRow - 2, 100, 11, WHITE);
+      display.setTextColor(BLACK);
+    }
+    else
+    {
+      display.setTextColor(WHITE);
+    }
+
+    display.drawCircle(5, yRow + 2, 2, (i == settingsSelectedIndex) ? BLACK : WHITE);
+    // Fill circle for active mode
+    if (i == settingsModeActive)
+      display.fillCircle(5, yRow + 2, 1, (i == settingsSelectedIndex) ? BLACK : WHITE);
+
+    display.setCursor(10, yRow);
     display.print(modes[i]);
-    display.setCursor(85, 20 + i * 10);
-    display.print("OFF");
+    display.setCursor(85, yRow);
+    display.print((i == settingsModeActive) ? "ON " : "OFF");
+
+    display.setTextColor(WHITE);
   }
 
   display.display();
 }
+
+// ─── Navigation logic ─────────────────────────────────────────────────────────
+
+// Called when NEXT button is pressed.
+// On HOME  → switches to SETTINGS page.
+// On SETTINGS → cycles through the 4 options; wraps back to HOME after the last one.
+void handleNextButton()
+{
+  if (currentPage == PAGE_HOME)
+  {
+    currentPage = PAGE_SETTINGS;
+    settingsSelectedIndex = 0;
+  }
+  else // PAGE_SETTINGS
+  {
+    settingsSelectedIndex++;
+    if (settingsSelectedIndex >= 4)
+    {
+      settingsSelectedIndex = 0;
+      currentPage = PAGE_HOME;
+    }
+  }
+}
+
+// Called when OK button is pressed.
+// On HOME  → activates the settings icon / could trigger autopilot (extend as needed).
+// On SETTINGS → activates the currently highlighted mode.
+void handleOkButton()
+{
+  if (currentPage == PAGE_HOME)
+  {
+    // OK on home: navigate to settings (same as NEXT for convenience)
+    currentPage = PAGE_SETTINGS;
+    settingsSelectedIndex = 0;
+  }
+  else // PAGE_SETTINGS
+  {
+    settingsModeActive = settingsSelectedIndex;
+  }
+}
+
+// Renders the current page
+void renderCurrentPage()
+{
+  if (currentPage == PAGE_HOME)
+    showHome();
+  else
+    showSettings();
+}
+
+// Updates the blink animation ticker (call every loop iteration)
+void updateNavAnimation()
+{
+  ulong now = millis();
+  if (now - lastAnimTime >= ANIM_INTERVAL)
+  {
+    lastAnimTime = now;
+    animBlink = !animBlink;
+  }
+}
+
+// Reads both buttons with debounce and fires the appropriate handlers
+void handleButtons()
+{
+  ulong now = millis();
+
+  bool nextState = digitalRead(BUTTON_NEXT);
+  bool okState   = digitalRead(BUTTON_OK);
+
+  // NEXT button – rising edge with debounce
+  if (nextState && !lastNextState && (now - lastNextPress > DEBOUNCE_MS))
+  {
+    lastNextPress = now;
+    handleNextButton();
+  }
+  lastNextState = nextState;
+
+  // OK button – rising edge with debounce
+  if (okState && !lastOkState && (now - lastOkPress > DEBOUNCE_MS))
+  {
+    lastOkPress = now;
+    handleOkButton();
+  }
+  lastOkState = okState;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 void setLeftSpeed(int speed) { ledcWrite(LEFT_ENABLE_CHANNEL, constrain(speed, 0, 255)); }
 void setRightSpeed(int speed) { ledcWrite(RIGHT_ENABLE_CHANNEL, constrain(speed, 0, 255)); }
@@ -349,11 +506,6 @@ void driveFromJoystick()
   }
   else if (yOffset < -JOY_THRESHOLD)
   {
-    // if (distance > 0 && distance < REDSOUND)
-    // {
-    //   stopMotors();
-    //   return;
-    // }
     moveBackward();
     motorSpeedLeft = map((int)(-yOffset * 1000),
                          (int)(JOY_THRESHOLD * 1000),
@@ -482,6 +634,8 @@ void setup()
   pinMode(LEFTMOTORS2, OUTPUT);
   pinMode(RIGHTMOTORS1, OUTPUT);
   pinMode(RIGHTMOTORS2, OUTPUT);
+  pinMode(BUTTON_NEXT, INPUT_PULLDOWN);
+  pinMode(BUTTON_OK, INPUT_PULLDOWN);
 
   ledcSetup(LEFT_ENABLE_CHANNEL, MOTOR_PWM_FREQ, MOTOR_PWM_RESOLUTION);
   ledcSetup(RIGHT_ENABLE_CHANNEL, MOTOR_PWM_FREQ, MOTOR_PWM_RESOLUTION);
@@ -534,19 +688,6 @@ void loop()
 {
   ulong now = millis();
 
-  // if (deviceConnected && (now - lastBLECommand < BLE_TIMEOUT))
-  // {
-  //   bleControlActive = true;
-  // }
-  // else
-  // {
-  //   if (bleControlActive)
-  //   {
-  //     bleControlActive = false;
-  //     stopMotors(); // спри при смяна на режима
-  //   }
-  // }
-
   if (now - lastSensorRead >= 60)
   {
     lastSensorRead = now;
@@ -555,14 +696,18 @@ void loop()
     soundIndication(distance);
   }
 
+  // Update blink animation ticker
+  updateNavAnimation();
+
+  // Handle button presses
+  handleButtons();
+
+  // Render display at ~10 fps
   if (now - lastDisplayUpdate >= 100)
   {
     lastDisplayUpdate = now;
-    showHome();
+    renderCurrentPage();
   }
 
-  //   if (!bleControlActive)
-  //     driveFromJoystick();
-  // }
   driveFromJoystick();
 }
