@@ -4,6 +4,10 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 #include <math.h>
+// #include <NimBLEDevice.h>
+#include <BLEDevice.h>
+#include <BLEServer.h>
+#include <BLEUtils.h>
 
 #define TRIG 12
 #define ECHO 11
@@ -14,15 +18,15 @@
 #define YELLOW_LED 36
 #define RED_LED 37
 
-#define RGB_PIN 14
+#define RGB_PIN 38
 #define RGB_COUNT 1
 
 #define SCREEN_WIDTH 128
 #define SCREEN_HEIGHT 64
 
 #define BUZZER_CHANNEL 0
-#define BUZZER_RESOLUTION 8 // 8-bit: 0–255
-#define BUZZER_VOLUME 128   // 50% duty cycle
+#define BUZZER_RESOLUTION 8
+#define BUZZER_VOLUME 128
 
 #define NOSOUND 16
 #define GREENSOUND 11
@@ -50,18 +54,25 @@
 #define JOY_THRESHOLD 0.15
 #define MIN_SPEED 70
 
+#define BLE_TIMEOUT 300
+BLEServer *pServer = nullptr;
+bool deviceConnected = false;
+ulong lastBLECommand = 0;
+bool bleControlActive = false;
+
 const float JOY_MID_X = 1.61;
 const float JOY_MID_Y = 1.56;
 
 typedef unsigned long ulong;
 
-// Adafruit_NeoPixel rgb(RGB_COUNT, RGB_PIN, NEO_GRB + NEO_KHZ800);
+Adafruit_NeoPixel rgb(RGB_COUNT, RGB_PIN, NEO_GRB + NEO_KHZ800);
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
 bool displayOK = false;
 
 float distance = 0;
 ulong duration = 0;
 ulong lastSensorRead = 0;
+ulong lastDisplayUpdate = 0;
 
 bool buzzerState = false;
 ulong lastChangeTime = 0;
@@ -83,8 +94,14 @@ void buzzerOff()
 
 void soundIndication(float dist)
 {
-  ulong now = millis();
+  if (dist < 0)
+  {
+    buzzerOff();
+    buzzerState = false;
+    return;
+  }
 
+  ulong now = millis();
   int toneFreq;
   ulong onTime, offTime;
 
@@ -143,6 +160,9 @@ void lightIndication(float dist)
   digitalWrite(YELLOW_LED, LOW);
   digitalWrite(RED_LED, LOW);
 
+  if (dist < 0)
+    return;
+
   if (dist > GREENSOUND && dist <= NOSOUND)
     digitalWrite(GREEN_LED, HIGH);
   else if (dist > YELLOWSOUND && dist <= GREENSOUND)
@@ -160,21 +180,18 @@ void readHC_SR04()
   digitalWrite(TRIG, LOW);
 
   duration = pulseIn(ECHO, HIGH, 30000);
-  distance = duration / 58.0;
+  distance = (duration == 0) ? -1.0f : duration / 58.0f;
 }
 
-// 'autopilot', 20x15px
 const unsigned char epd_bitmap_autopilot[] PROGMEM = {
     0x20, 0xf0, 0x40, 0x43, 0x9c, 0x20, 0x56, 0x06, 0xa0, 0x84, 0x02, 0x50, 0xac, 0xf3, 0x50, 0xaf,
     0xff, 0x50, 0xaf, 0xff, 0x50, 0xac, 0xf3, 0x50, 0xa4, 0x62, 0x50, 0x16, 0x66, 0x80, 0x43, 0xfc,
     0x20, 0x20, 0xf0, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 
-// 'settings', 15x15px
 const unsigned char epd_bitmap_settings[] PROGMEM = {
     0x03, 0x80, 0x17, 0xd0, 0x3f, 0xf8, 0x7f, 0xfc, 0x38, 0x38, 0x70, 0x1c, 0xf0, 0x1e, 0xf0, 0x1e,
     0xf0, 0x1e, 0x70, 0x1c, 0x38, 0x38, 0x7f, 0xfc, 0x3f, 0xf8, 0x17, 0xd0, 0x03, 0x80};
 
-// 'backtohome', 20x20px
 const unsigned char epd_bitmap_backtohome[] PROGMEM = {
     0x01, 0xf8, 0x00, 0x07, 0x0e, 0x00, 0x1c, 0x03, 0x00, 0x30, 0x00, 0x80, 0x20, 0x38, 0x40, 0x60,
     0x78, 0x60, 0x40, 0xf0, 0x20, 0xc1, 0xe0, 0x20, 0x83, 0xc0, 0x30, 0x87, 0x80, 0x10, 0x87, 0x80,
@@ -190,21 +207,18 @@ void showHome()
   display.drawRect(0, 0, 128, 64, WHITE);
   display.setTextColor(WHITE);
 
-  // RIGHT ICON COLUMN
   int colX = 108;
   display.drawBitmap(colX + 1, 2, epd_bitmap_settings, 15, 15, WHITE);
   display.drawBitmap(colX - 1, 18, epd_bitmap_autopilot, 20, 15, WHITE);
   display.drawLine(105, 0, 105, 64, WHITE);
 
-  // TITLE
   display.setTextSize(1);
   display.setCursor(4, 3);
   display.println("PARKTRONIC 3000");
   display.drawLine(0, 12, 105, 12, WHITE);
 
-  // DISTANCE
   display.setTextSize(2);
-  if (duration == 0 || distance <= 0 || distance > NOSOUND)
+  if (duration == 0 || distance < 0)
   {
     display.setCursor(10, 18);
     display.println("SAFE");
@@ -215,10 +229,9 @@ void showHome()
     display.printf("%4.1fcm", distance);
   }
 
-  // STATUS TEXT
   String status;
   int barWidth;
-  if (distance > NOSOUND || duration == 0)
+  if (distance < 0 || duration == 0 || distance > NOSOUND)
   {
     status = "Clear";
     barWidth = 0;
@@ -238,11 +251,11 @@ void showHome()
     status = "STOP";
     barWidth = 100;
   }
+
   display.setTextSize(1);
   display.setCursor(3, 44);
   display.println(status);
 
-  // BAR
   display.drawRect(3, 56, 100, 6, WHITE);
   display.fillRect(3, 56, barWidth, 6, WHITE);
 
@@ -267,22 +280,12 @@ void showSettings()
   display.println("SETTINGS");
   display.drawLine(0, 12, 128, 12, WHITE);
 
-  display.setTextSize(1);
-
-  const char *modes[] = {
-      "Light&Sound:",
-      "Light Only:",
-      "Sound Only:",
-      "None:"};
-
+  const char *modes[] = {"Light&Sound:", "Light Only:", "Sound Only:", "None:"};
   for (int i = 0; i < 4; i++)
   {
-    display.setTextColor(WHITE);
     display.drawCircle(5, 22 + i * 10, 2, WHITE);
-
     display.setCursor(10, 20 + i * 10);
     display.print(modes[i]);
-
     display.setCursor(85, 20 + i * 10);
     display.print("OFF");
   }
@@ -290,15 +293,8 @@ void showSettings()
   display.display();
 }
 
-void setLeftSpeed(int speed)
-{
-  ledcWrite(LEFT_ENABLE_CHANNEL, constrain(speed, 0, 255));
-}
-
-void setRightSpeed(int speed)
-{
-  ledcWrite(RIGHT_ENABLE_CHANNEL, constrain(speed, 0, 255));
-}
+void setLeftSpeed(int speed) { ledcWrite(LEFT_ENABLE_CHANNEL, constrain(speed, 0, 255)); }
+void setRightSpeed(int speed) { ledcWrite(RIGHT_ENABLE_CHANNEL, constrain(speed, 0, 255)); }
 
 void moveForward()
 {
@@ -321,7 +317,6 @@ void stopLeftMotors()
   digitalWrite(LEFTMOTORS1, LOW);
   digitalWrite(LEFTMOTORS2, LOW);
 }
-
 void stopRightMotors()
 {
   digitalWrite(RIGHTMOTORS1, LOW);
@@ -334,11 +329,6 @@ void stopMotors()
   stopRightMotors();
   setLeftSpeed(0);
   setRightSpeed(0);
-}
-
-bool preciesJoystick(float volt, float target)
-{
-  return fabs(volt - target) < JOY_THRESHOLD;
 }
 
 void driveFromJoystick()
@@ -359,11 +349,11 @@ void driveFromJoystick()
   }
   else if (yOffset < -JOY_THRESHOLD)
   {
-    if (distance < REDSOUND)
-    {
-      stopMotors();
-      return;
-    }
+    // if (distance > 0 && distance < REDSOUND)
+    // {
+    //   stopMotors();
+    //   return;
+    // }
     moveBackward();
     motorSpeedLeft = map((int)(-yOffset * 1000),
                          (int)(JOY_THRESHOLD * 1000),
@@ -403,22 +393,91 @@ void driveFromJoystick()
 
   setLeftSpeed(motorSpeedLeft);
   setRightSpeed(motorSpeedRight);
-
-  Serial.printf("X: %.3fV | Y: %.3fV | L: %3d | R: %3d\n",
-                xVolt, yVolt, motorSpeedLeft, motorSpeedRight);
 }
+
+class MyServerCallbacks : public BLEServerCallbacks
+{
+  void onConnect(BLEServer *pServer)
+  {
+    deviceConnected = true;
+    Serial.println("BLE: Client connected");
+    rgb.setPixelColor(0, rgb.Color(0, 0, 255));
+    rgb.show();
+  }
+
+  void onDisconnect(BLEServer *pServer)
+  {
+    deviceConnected = false;
+    Serial.println("BLE: Client disconnected");
+    rgb.setPixelColor(0, rgb.Color(255, 0, 0));
+    rgb.show();
+    pServer->startAdvertising();
+  }
+};
+
+class MyCallbacks : public BLECharacteristicCallbacks
+{
+  void onWrite(BLECharacteristic *pCharacteristic)
+  {
+    std::string value = pCharacteristic->getValue();
+    if (value.empty())
+      return;
+
+    lastBLECommand = millis();
+
+    Serial.printf("BLE received: %s\n", value.c_str());
+
+    if (value == "F")
+    {
+      setLeftSpeed(200);
+      setRightSpeed(200);
+      moveForward();
+    }
+    else if (value == "B")
+    {
+      if (distance > 0 && distance < REDSOUND)
+      {
+        stopMotors();
+        return;
+      }
+      setLeftSpeed(200);
+      setRightSpeed(200);
+      moveBackward();
+    }
+    else if (value == "L")
+    {
+      motorSpeedLeft = 80;
+      motorSpeedRight = 200;
+      setLeftSpeed(motorSpeedLeft);
+      setRightSpeed(motorSpeedRight);
+      moveForward();
+    }
+    else if (value == "R")
+    {
+      motorSpeedLeft = 200;
+      motorSpeedRight = 80;
+      setLeftSpeed(motorSpeedLeft);
+      setRightSpeed(motorSpeedRight);
+      moveForward();
+    }
+    else if (value == "S")
+    {
+      stopMotors();
+    }
+  }
+};
 
 void setup()
 {
   Serial.begin(115200);
+  delay(1000);
+  Serial.println("Booting...");
 
   pinMode(GREEN_LED, OUTPUT);
   pinMode(YELLOW_LED, OUTPUT);
   pinMode(RED_LED, OUTPUT);
-
   pinMode(TRIG, OUTPUT);
   pinMode(ECHO, INPUT);
-
   pinMode(LEFTMOTORS1, OUTPUT);
   pinMode(LEFTMOTORS2, OUTPUT);
   pinMode(RIGHTMOTORS1, OUTPUT);
@@ -433,16 +492,14 @@ void setup()
   ledcAttachPin(BUZZER, BUZZER_CHANNEL);
   ledcWrite(BUZZER_CHANNEL, 0);
 
-  // rgb.begin();
-  // rgb.show();
+  rgb.begin();
+  rgb.setPixelColor(0, rgb.Color(255, 0, 0));
+  rgb.show();
+
   Wire.begin(8, 9);
-
   displayOK = display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
-
   if (!displayOK)
-  {
     Serial.println("SSD1306 NOT detected -> continuing without display");
-  }
   else
   {
     display.clearDisplay();
@@ -450,27 +507,62 @@ void setup()
   }
 
   analogReadResolution(12);
-
   stopMotors();
   digitalWrite(TRIG, LOW);
-  delay(1000);
+  delay(500);
+
+  BLEDevice::init("ESP32Car");
+  pServer = BLEDevice::createServer();
+  pServer->setCallbacks(new MyServerCallbacks());
+
+  BLEService *pService = pServer->createService("12345678-1234-1234-1234-123456789abc");
+  BLECharacteristic *pCharacteristic = pService->createCharacteristic(
+      "abcd1234-5678-90ab-cdef-1234567890ab",
+      BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_READ);
+  pCharacteristic->setCallbacks(new MyCallbacks());
+  pService->start();
+
+  BLEAdvertising *pAdvertising = BLEDevice::getAdvertising();
+  pAdvertising->addServiceUUID(pService->getUUID());
+  pAdvertising->setScanResponse(true);
+  BLEDevice::startAdvertising();
+
+  Serial.println("BLE started!");
 }
 
 void loop()
 {
   ulong now = millis();
 
-  if (now - lastSensorRead >= 100)
+  // if (deviceConnected && (now - lastBLECommand < BLE_TIMEOUT))
+  // {
+  //   bleControlActive = true;
+  // }
+  // else
+  // {
+  //   if (bleControlActive)
+  //   {
+  //     bleControlActive = false;
+  //     stopMotors(); // спри при смяна на режима
+  //   }
+  // }
+
+  if (now - lastSensorRead >= 60)
   {
     lastSensorRead = now;
     readHC_SR04();
-    // lightIndication(distance);
-    // soundIndication(distance);
+    lightIndication(distance);
+    soundIndication(distance);
   }
 
-  showHome();
-  delay(5000);
-  showSettings();
+  if (now - lastDisplayUpdate >= 100)
+  {
+    lastDisplayUpdate = now;
+    showHome();
+  }
+
+  //   if (!bleControlActive)
+  //     driveFromJoystick();
+  // }
   driveFromJoystick();
-  delay(5000);
 }
