@@ -19,6 +19,7 @@
 
 ---
 ![Modules architecture](docx/circuit_image.png)
+![Modules architecture](docx/image.png)
 
 ---
 
