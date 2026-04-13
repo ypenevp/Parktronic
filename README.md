@@ -36,13 +36,11 @@ The system features a small OLED display with two pages — a **Home** page show
   - Light & Sound (both LEDs and buzzer)
   - Light Only
   - Sound Only
-  - None
+  - None(Only on display)
 - **2-button navigation:**
   - `NEXT` — cycles through options on the current page
   - `OK` — activates the highlighted option or navigates between pages
-- **RGB NeoPixel LED** — Bluetooth connection status indicator
-- **DC Motor control** — dual H-bridge driver with PWM speed control
-- **Analog joystick** — manual directional control of the car
+- **Joystick control** — control the car with analog joystick
  
 ---
 
@@ -62,15 +60,17 @@ The system features a small OLED display with two pages — a **Home** page show
 | **Firmware** | C++ (Arduino framework), ESP32 S3 |
 | **Sensors** | HC-SR04 |
 | **Display** | SSD1306 OLED display |
+| **Motors** | TT DC motors, L298N driver |
 | **Frontend** | React Native (Expo) |
-| **Motors** |  |
 | **Build tools** | PlatformIO |
 
 ---
 
 ## Future Improvements
  
-
+- **Bluetooth Low Energy (BLE)** — remote control via commands (`F`, `B`, `L`, `R`, `S`)
+- **Automatic stop** — blocks forward movement when obstacle is closer than 2.4 cm
+- Add a camera module (e.g. ESP32-CAM) for live video feed via Bluethooth
  
 ---
 
