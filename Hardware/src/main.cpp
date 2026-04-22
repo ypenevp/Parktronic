@@ -1353,7 +1353,6 @@ void driveFromJoystick()
   {
     stopMotors();
     motorsWereStopped = true;
-    return;
   }
 
   if (motorSpeedLeft == 0 && motorSpeedRight == 0)
@@ -1455,16 +1454,6 @@ class MyCallbacks : public BLECharacteristicCallbacks
     {
       stopMotors();
     }
-    else if (value == "X")
-    {
-      rgb.setPixelColor(0, rgb.Color(0, 255, 0));
-      rgb.show();
-    }
-    else if (value == "Y")
-    {
-      rgb.setPixelColor(0, rgb.Color(0, 0, 255));
-      rgb.show();
-    }
   }
 };
 
@@ -1521,9 +1510,9 @@ void setup()
   BLEService *pService = pServer->createService("12345678-1234-1234-1234-123456789abc");
   BLECharacteristic *pCharacteristic = pService->createCharacteristic(
       "abcd1234-5678-90ab-cdef-1234567890ab",
-      BLECharacteristic::PROPERTY_READ |
-          BLECharacteristic::PROPERTY_WRITE |
-          BLECharacteristic::PROPERTY_WRITE_NR);
+      BLECharacteristic::PROPERTY_WRITE |
+          BLECharacteristic::PROPERTY_WRITE_NR |
+          BLECharacteristic::PROPERTY_READ);
   pCharacteristic->setCallbacks(new MyCallbacks());
   pService->start();
 
