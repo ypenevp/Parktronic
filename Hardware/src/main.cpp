@@ -1276,13 +1276,6 @@ void driveFromJoystick()
 {
   static bool motorsWereStopped = true;
 
-  if (autopilotActive && distance > 0 && distance <= getDynamicStopDistance())
-  {
-    stopMotors();
-    motorsWereStopped = true;
-    return;
-  }
-
   // if (parkingModeActive && distance > 0 && distance <= REDSOUND)
   // {
   //   stopMotors();
@@ -1301,6 +1294,16 @@ void driveFromJoystick()
 
   bool goingForward = false;
   bool goingBackward = false;
+
+  if (autopilotActive && distance > 0 && distance <= getDynamicStopDistance())
+  {
+    if (yOffset < -JOY_THRESHOLD)
+    {
+      stopMotors();
+      motorsWereStopped = true;
+      return;
+    }
+  }
 
   if (yOffset > JOY_THRESHOLD)
   {
@@ -1348,12 +1351,6 @@ void driveFromJoystick()
     motorSpeedLeft = 0;
   if (motorSpeedRight < minSpeed)
     motorSpeedRight = 0;
-
-  if (autopilotActive && goingBackward && distance > 0 && distance <= getDynamicStopDistance())
-  {
-    stopMotors();
-    motorsWereStopped = true;
-  }
 
   if (motorSpeedLeft == 0 && motorSpeedRight == 0)
   {
