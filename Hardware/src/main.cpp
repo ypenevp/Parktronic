@@ -1349,6 +1349,13 @@ void driveFromJoystick()
   if (motorSpeedRight < minSpeed)
     motorSpeedRight = 0;
 
+  if (autopilotActive && goingBackward && distance > 0 && distance <= getDynamicStopDistance())
+  {
+    stopMotors();
+    motorsWereStopped = true;
+    return;
+  }
+
   if (motorSpeedLeft == 0 && motorSpeedRight == 0)
   {
     stopMotors();
