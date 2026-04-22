@@ -1414,7 +1414,7 @@ class MyServerCallbacks : public BLEServerCallbacks
 //     lastBLECommand = millis();
 //     Serial.printf("BLE received: %s\n", value.c_str());
 
-//     /* 
+//     /*
 //     if (value == "F")
 //     {
 //       setLeftSpeed(200);
@@ -1465,7 +1465,6 @@ class MyServerCallbacks : public BLEServerCallbacks
 //   }
 // };
 
-
 class MyCallbacks : public BLECharacteristicCallbacks
 {
   void onWrite(BLECharacteristic *pCharacteristic)
@@ -1479,12 +1478,6 @@ class MyCallbacks : public BLECharacteristicCallbacks
 
     if (value == "F")
     {
-      setLeftSpeed(200);
-      setRightSpeed(200);
-      moveForward();
-    }
-    else if (value == "B")
-    {
       if (distance > 0 && distance < REDSOUND)
       {
         stopMotors();
@@ -1493,6 +1486,12 @@ class MyCallbacks : public BLECharacteristicCallbacks
       setLeftSpeed(200);
       setRightSpeed(200);
       moveBackward();
+    }
+    else if (value == "B")
+    {
+      setLeftSpeed(200);
+      setRightSpeed(200);
+      moveForward();
     }
     else if (value == "L")
     {
