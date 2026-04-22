@@ -1085,15 +1085,8 @@ void showHome()
 
   if (autopilotActive)
   {
-    if (animBlink)
-    {
-      display.fillRect(colX - 2, 18, 22, 16, WHITE);
-      display.drawBitmap(colX - 1, 19, epd_bitmap_autopilot, 20, 14, BLACK);
-    }
-    else
-    {
-      display.drawBitmap(colX - 1, 19, epd_bitmap_autopilot, 20, 14, WHITE);
-    }
+    display.fillRect(colX - 2, 18, 22, 16, WHITE);
+    display.drawBitmap(colX - 1, 19, epd_bitmap_autopilot, 20, 14, BLACK);
   }
   else
   {
@@ -1275,7 +1268,7 @@ void stopMotors()
 float getDynamicStopDistance()
 {
   int avgSpeed = (motorSpeedLeft + motorSpeedRight) / 2;
-  float extraDist = 9.6f;
+  float extraDist = 18.6f;
   return REDSOUND + (avgSpeed / 255.0f) * extraDist;
 }
 
