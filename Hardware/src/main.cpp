@@ -818,6 +818,7 @@ int settingsSelectedIndex = 0;
 int settingsModeActive = 3;
 
 bool parkingModeActive = false;
+bool autopilotActive = false;
 
 bool lastNextState = false;
 bool lastOkState = false;
@@ -954,6 +955,21 @@ void handleOkButton()
     }
     else if (homeSelectedIndex == 1)
     {
+      autopilotActive = !autopilotActive;
+      if (autopilotActive)
+      {
+        buzzerTone(1800);
+        delay(60);
+        buzzerTone(2400);
+        delay(60);
+        buzzerOff();
+      }
+      else
+      {
+        buzzerTone(1000);
+        delay(80);
+        buzzerOff();
+      }
     }
     else if (homeSelectedIndex == 2)
     {
@@ -1049,7 +1065,6 @@ void drawParkingIcon(int x, int y, bool selected, bool active, bool blink)
     display.drawRect(x - 2, y - 2, 20, 18, WHITE);
 }
 
-
 ///////////////////////////////////////////////////////////
 // display
 
@@ -1068,9 +1083,24 @@ void showHome()
   if (homeSelectedIndex == 0 && animBlink)
     drawNextHighlight(colX, 1, 17, 17);
 
-  display.drawBitmap(colX - 1, 19, epd_bitmap_autopilot, 20, 14, WHITE);
-  if (homeSelectedIndex == 1 && animBlink)
-    drawNextHighlight(colX - 2, 18, 22, 16);
+  if (autopilotActive)
+  {
+    if (animBlink)
+    {
+      display.fillRect(colX - 2, 18, 22, 16, WHITE);
+      display.drawBitmap(colX - 1, 19, epd_bitmap_autopilot, 20, 14, BLACK);
+    }
+    else
+    {
+      display.drawBitmap(colX - 1, 19, epd_bitmap_autopilot, 20, 14, WHITE);
+    }
+  }
+  else
+  {
+    display.drawBitmap(colX - 1, 19, epd_bitmap_autopilot, 20, 14, WHITE);
+    if (homeSelectedIndex == 1 && animBlink)
+      drawNextHighlight(colX - 2, 18, 22, 16);
+  }
 
   drawParkingIcon(colX, 36, homeSelectedIndex == 2, parkingModeActive, animBlink);
 
@@ -1242,16 +1272,30 @@ void stopMotors()
   setRightSpeed(0);
 }
 
+float getDynamicStopDistance()
+{
+  int avgSpeed = (motorSpeedLeft + motorSpeedRight) / 2;
+  float extraDist = 9.6f;
+  return REDSOUND + (avgSpeed / 255.0f) * extraDist;
+}
+
 void driveFromJoystick()
 {
   static bool motorsWereStopped = true;
 
-  if (parkingModeActive && distance > 0 && distance <= REDSOUND)
+  if (autopilotActive && distance > 0 && distance <= getDynamicStopDistance())
   {
     stopMotors();
     motorsWereStopped = true;
     return;
   }
+
+  // if (parkingModeActive && distance > 0 && distance <= REDSOUND)
+  // {
+  //   stopMotors();
+  //   motorsWereStopped = true;
+  //   return;
+  // }
 
   int maxSpeed = parkingModeActive ? PARKING_MAX_SPEED : 255;
   int minSpeed = parkingModeActive ? PARKING_MIN_SPEED : MIN_SPEED;
@@ -1307,8 +1351,10 @@ void driveFromJoystick()
   motorSpeedLeft = constrain(motorSpeedLeft, 0, maxSpeed);
   motorSpeedRight = constrain(motorSpeedRight, 0, maxSpeed);
 
-  if (motorSpeedLeft < minSpeed) motorSpeedLeft = 0;
-  if (motorSpeedRight < minSpeed) motorSpeedRight = 0;
+  if (motorSpeedLeft < minSpeed)
+    motorSpeedLeft = 0;
+  if (motorSpeedRight < minSpeed)
+    motorSpeedRight = 0;
 
   if (motorSpeedLeft == 0 && motorSpeedRight == 0)
   {
@@ -1322,8 +1368,7 @@ void driveFromJoystick()
   else if (goingBackward)
     moveBackward();
 
-
-  //Kickstart 
+  // Kickstart
   if (motorsWereStopped)
   {
     setLeftSpeed(255);
