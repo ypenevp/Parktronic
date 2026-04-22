@@ -770,11 +770,15 @@ typedef unsigned long ulong;
 #define JOY_ADC_MAX 4095
 #define JOY_THRESHOLD 0.15
 #define MIN_SPEED 70
+#define PARKING_MIN_SPEED 30
 
 #define BUTTON_NEXT 14
 #define BUTTON_OK 13
 
 #define BLE_TIMEOUT 300
+
+#define PARKING_MAX_SPEED 70
+
 BLEServer *pServer = nullptr;
 bool deviceConnected = false;
 ulong lastBLECommand = 0;
@@ -809,9 +813,11 @@ enum Page
 
 Page currentPage = PAGE_HOME;
 
-int homeSelectedIndex = 0;     // 0 - settings; 1 - autopilot
-int settingsSelectedIndex = 0; // 0-3 - modes; 4 - back to home
-int settingsModeActive = 0;
+int homeSelectedIndex = 0;
+int settingsSelectedIndex = 0;
+int settingsModeActive = 3;
+
+bool parkingModeActive = false;
 
 bool lastNextState = false;
 bool lastOkState = false;
@@ -905,10 +911,8 @@ void lightIndication(float dist)
   digitalWrite(GREEN_LED, LOW);
   digitalWrite(YELLOW_LED, LOW);
   digitalWrite(RED_LED, LOW);
-
   if (dist < 0)
     return;
-
   if (dist > GREENSOUND && dist <= NOSOUND)
     digitalWrite(GREEN_LED, HIGH);
   else if (dist > YELLOWSOUND && dist <= GREENSOUND)
@@ -927,7 +931,6 @@ void readHC_SR04()
   digitalWrite(TRIG, HIGH);
   delayMicroseconds(10);
   digitalWrite(TRIG, LOW);
-
   duration = pulseIn(ECHO, HIGH, 30000);
   distance = (duration == 0) ? -1.0f : duration / 58.0f;
 }
@@ -935,13 +938,9 @@ void readHC_SR04()
 void handleNextButton()
 {
   if (currentPage == PAGE_HOME)
-  {
-    homeSelectedIndex = (homeSelectedIndex + 1) % 2;
-  }
+    homeSelectedIndex = (homeSelectedIndex + 1) % 3;
   else
-  {
     settingsSelectedIndex = (settingsSelectedIndex + 1) % 5;
-  }
 }
 
 void handleOkButton()
@@ -955,26 +954,35 @@ void handleOkButton()
     }
     else if (homeSelectedIndex == 1)
     {
-      // comming soon
+    }
+    else if (homeSelectedIndex == 2)
+    {
+      parkingModeActive = !parkingModeActive;
+      if (parkingModeActive)
+      {
+        buzzerTone(1500);
+        delay(80);
+        buzzerOff();
+        settingsModeActive = 0;
+      }
+      else
+      {
+        settingsModeActive = 3;
+      }
     }
   }
   else
   {
     if (settingsSelectedIndex == 4)
-    {
       currentPage = PAGE_HOME;
-    }
     else
-    {
       settingsModeActive = settingsSelectedIndex;
-    }
   }
 }
 
 void handleButtons()
 {
   ulong now = millis();
-
   bool nextState = digitalRead(BUTTON_NEXT);
   bool okState = digitalRead(BUTTON_OK);
 
@@ -1016,6 +1024,32 @@ void drawNextHighlight(int x, int y, int w, int h)
   display.drawRect(x - 1, y - 1, w + 2, h + 2, WHITE);
 }
 
+void drawParkingIcon(int x, int y, bool selected, bool active, bool blink)
+{
+  if (active)
+  {
+    display.fillRect(x, y, 16, 14, WHITE);
+    display.setTextColor(BLACK);
+  }
+  else
+  {
+    display.drawRect(x, y, 16, 14, WHITE);
+    display.setTextColor(WHITE);
+  }
+
+  display.setTextSize(1);
+  display.setCursor(x + 4, y + 3);
+  display.print("P");
+  display.setTextColor(WHITE);
+
+  if (selected && blink && !active)
+    drawNextHighlight(x - 1, y - 1, 18, 16);
+
+  if (selected && blink && active)
+    display.drawRect(x - 2, y - 2, 20, 18, WHITE);
+}
+
+
 ///////////////////////////////////////////////////////////
 // display
 
@@ -1034,15 +1068,23 @@ void showHome()
   if (homeSelectedIndex == 0 && animBlink)
     drawNextHighlight(colX, 1, 17, 17);
 
-  display.drawBitmap(colX - 1, 18, epd_bitmap_autopilot, 20, 15, WHITE);
+  display.drawBitmap(colX - 1, 19, epd_bitmap_autopilot, 20, 14, WHITE);
   if (homeSelectedIndex == 1 && animBlink)
-    drawNextHighlight(colX - 2, 17, 22, 17);
+    drawNextHighlight(colX - 2, 18, 22, 16);
+
+  drawParkingIcon(colX, 36, homeSelectedIndex == 2, parkingModeActive, animBlink);
 
   display.drawLine(105, 0, 105, 64, WHITE);
 
   display.setTextSize(1);
   display.setCursor(4, 3);
-  display.println("PARKTRONIC 3000");
+  if (bleControlActive)
+    display.println("PARKTRONIC [BLE]");
+  else if (parkingModeActive)
+    display.println("PARKTRONIC [PRK]");
+  else
+    display.println("PARKTRONIC 3000");
+
   display.drawLine(0, 12, 105, 12, WHITE);
 
   display.setTextSize(2);
@@ -1116,16 +1158,13 @@ void showSettings()
   for (int i = 0; i < 4; i++)
   {
     int yRow = 22 + i * 10;
-
     if (i == settingsSelectedIndex)
     {
       display.fillRect(2, yRow - 2, 100, 11, WHITE);
       display.setTextColor(BLACK);
     }
     else
-    {
       display.setTextColor(WHITE);
-    }
 
     display.drawCircle(5, yRow + 2, 2, (i == settingsSelectedIndex) ? BLACK : WHITE);
     if (i == settingsModeActive)
@@ -1135,7 +1174,6 @@ void showSettings()
     display.print(modes[i]);
     display.setCursor(85, yRow);
     display.print((i == settingsModeActive) ? "ON " : "OFF");
-
     display.setTextColor(WHITE);
   }
 
@@ -1206,15 +1244,30 @@ void stopMotors()
 
 void driveFromJoystick()
 {
+  static bool motorsWereStopped = true;
+
+  if (parkingModeActive && distance > 0 && distance <= REDSOUND)
+  {
+    stopMotors();
+    motorsWereStopped = true;
+    return;
+  }
+
+  int maxSpeed = parkingModeActive ? PARKING_MAX_SPEED : 255;
+  int minSpeed = parkingModeActive ? PARKING_MIN_SPEED : MIN_SPEED;
+
   float xVolt = (analogRead(JOYSTICKX) * JOY_VCC) / JOY_ADC_MAX;
   float yVolt = (analogRead(JOYSTICKY) * JOY_VCC) / JOY_ADC_MAX;
 
   float xOffset = xVolt - JOY_MID_X;
   float yOffset = yVolt - JOY_MID_Y;
 
+  bool goingForward = false;
+  bool goingBackward = false;
+
   if (yOffset > JOY_THRESHOLD)
   {
-    moveForward();
+    goingForward = true;
     motorSpeedLeft = map((int)(yOffset * 1000),
                          (int)(JOY_THRESHOLD * 1000),
                          (int)(JOY_MID_Y * 1000), 0, 255);
@@ -1222,7 +1275,7 @@ void driveFromJoystick()
   }
   else if (yOffset < -JOY_THRESHOLD)
   {
-    moveBackward();
+    goingBackward = true;
     motorSpeedLeft = map((int)(-yOffset * 1000),
                          (int)(JOY_THRESHOLD * 1000),
                          (int)(JOY_MID_Y * 1000), 0, 255);
@@ -1251,24 +1304,48 @@ void driveFromJoystick()
     motorSpeedRight = constrain(motorSpeedRight + xMapped, 0, 255);
   }
 
-  if (motorSpeedLeft < MIN_SPEED)
-    motorSpeedLeft = 0;
-  if (motorSpeedRight < MIN_SPEED)
-    motorSpeedRight = 0;
+  motorSpeedLeft = constrain(motorSpeedLeft, 0, maxSpeed);
+  motorSpeedRight = constrain(motorSpeedRight, 0, maxSpeed);
+
+  if (motorSpeedLeft < minSpeed) motorSpeedLeft = 0;
+  if (motorSpeedRight < minSpeed) motorSpeedRight = 0;
 
   if (motorSpeedLeft == 0 && motorSpeedRight == 0)
+  {
     stopMotors();
+    motorsWereStopped = true;
+    return;
+  }
+
+  if (goingForward)
+    moveForward();
+  else if (goingBackward)
+    moveBackward();
+
+
+  //Kickstart 
+  if (motorsWereStopped)
+  {
+    setLeftSpeed(255);
+    setRightSpeed(255);
+    delay(40);
+    motorsWereStopped = false;
+  }
 
   setLeftSpeed(motorSpeedLeft);
   setRightSpeed(motorSpeedRight);
 }
 
+///////////////////////////////////////////////////////////
+// BLE
 class MyServerCallbacks : public BLEServerCallbacks
 {
   void onConnect(BLEServer *pServer)
   {
     deviceConnected = true;
-    Serial.println("BLE: Client connected");
+    bleControlActive = true;
+    stopMotors();
+    Serial.println("BLE: Client connected — joystick DISABLED");
     rgb.setPixelColor(0, rgb.Color(0, 0, 255));
     rgb.show();
   }
@@ -1276,7 +1353,9 @@ class MyServerCallbacks : public BLEServerCallbacks
   void onDisconnect(BLEServer *pServer)
   {
     deviceConnected = false;
-    Serial.println("BLE: Client disconnected");
+    bleControlActive = false;
+    stopMotors();
+    Serial.println("BLE: Client disconnected — joystick ENABLED");
     rgb.setPixelColor(0, rgb.Color(255, 0, 0));
     rgb.show();
     pServer->startAdvertising();
@@ -1292,7 +1371,6 @@ class MyCallbacks : public BLECharacteristicCallbacks
       return;
 
     lastBLECommand = millis();
-
     Serial.printf("BLE received: %s\n", value.c_str());
 
     if (value == "F")
@@ -1388,7 +1466,9 @@ void setup()
   BLEService *pService = pServer->createService("12345678-1234-1234-1234-123456789abc");
   BLECharacteristic *pCharacteristic = pService->createCharacteristic(
       "abcd1234-5678-90ab-cdef-1234567890ab",
-      BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_READ);
+      BLECharacteristic::PROPERTY_WRITE |
+          BLECharacteristic::PROPERTY_WRITE_NR |
+          BLECharacteristic::PROPERTY_READ);
   pCharacteristic->setCallbacks(new MyCallbacks());
   pService->start();
 
@@ -1399,6 +1479,8 @@ void setup()
 
   Serial.println("BLE started!");
 }
+
+///////////////////////////////////////////////////////////
 
 void loop()
 {
@@ -1446,5 +1528,6 @@ void loop()
     renderCurrentPage();
   }
 
-  driveFromJoystick();
+  if (!bleControlActive)
+    driveFromJoystick();
 }
