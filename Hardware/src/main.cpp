@@ -1489,38 +1489,47 @@ class MyCallbacks : public BLECharacteristicCallbacks
     lastBLECommand = millis();
     Serial.printf("BLE received: %s\n", value.c_str());
 
+    int maxSpeed = parkingModeActive ? PARKING_MAX_SPEED : 200;
+    int turnSpeedFast = parkingModeActive ? PARKING_MAX_SPEED : 200;
+    int turnSpeedSlow = parkingModeActive ? 0 : 80;
+
     if (value == "F")
+    {
+      setLeftSpeed(255); setRightSpeed(255); delay(40);
+      
+      setLeftSpeed(maxSpeed);
+      setRightSpeed(maxSpeed);
+      moveBackward(); 
+    }
+    else if (value == "B")
     {
       if (distance > 0 && distance < REDSOUND)
       {
         stopMotors();
         return;
       }
-      setLeftSpeed(200);
-      setRightSpeed(200);
-      moveBackward();
-    }
-    else if (value == "B")
-    {
-      setLeftSpeed(200);
-      setRightSpeed(200);
-      moveForward();
+      
+      setLeftSpeed(255); setRightSpeed(255); delay(40);
+      
+      setLeftSpeed(maxSpeed);
+      setRightSpeed(maxSpeed);
+      moveForward(); 
     }
     else if (value == "L")
     {
-      motorSpeedLeft = 80;
-      motorSpeedRight = 200;
-      setLeftSpeed(motorSpeedLeft);
-      setRightSpeed(motorSpeedRight);
-      moveForward();
+      setLeftSpeed(255); setRightSpeed(255); delay(40);
+
+      setLeftSpeed(turnSpeedSlow);
+      setRightSpeed(turnSpeedFast);
+      moveBackward(); 
     }
     else if (value == "R")
     {
-      motorSpeedLeft = 200;
-      motorSpeedRight = 80;
-      setLeftSpeed(motorSpeedLeft);
-      setRightSpeed(motorSpeedRight);
-      moveForward();
+      setLeftSpeed(255); setRightSpeed(255); delay(40);
+
+      setLeftSpeed(turnSpeedFast);
+      setRightSpeed(turnSpeedSlow);
+      moveBackward(); 
     }
     else if (value == "S")
     {
