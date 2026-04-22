@@ -1276,11 +1276,11 @@ void driveFromJoystick()
 {
   static bool motorsWereStopped = true;
 
-  if (autopilotActive && distance > 0 && distance <= getDynamicStopDistance())
+  if (autopilotActive && goingBackward && distance > 0 && distance <= getDynamicStopDistance())
   {
-    stopMotors();
-    motorsWereStopped = true;
-    return;
+    goingBackward = false;
+    motorSpeedLeft = 0;
+    motorSpeedRight = 0;
   }
 
   // if (parkingModeActive && distance > 0 && distance <= REDSOUND)
