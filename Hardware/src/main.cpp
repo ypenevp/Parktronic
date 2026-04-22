@@ -1296,13 +1296,6 @@ void driveFromJoystick()
   bool goingForward = false;
   bool goingBackward = false;
 
-  if (autopilotActive && goingBackward && distance > 0 && distance <= getDynamicStopDistance())
-  {
-    goingBackward = false;
-    motorSpeedLeft = 0;
-    motorSpeedRight = 0;
-  }
-
   if (yOffset > JOY_THRESHOLD)
   {
     goingForward = true;
@@ -1321,6 +1314,13 @@ void driveFromJoystick()
   }
   else
   {
+    motorSpeedLeft = 0;
+    motorSpeedRight = 0;
+  }
+
+  if (autopilotActive && goingBackward && distance > 0 && distance <= getDynamicStopDistance())
+  {
+    goingBackward = false;
     motorSpeedLeft = 0;
     motorSpeedRight = 0;
   }
