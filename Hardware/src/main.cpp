@@ -761,7 +761,7 @@ typedef unsigned long ulong;
 #define LEFT_ENABLE_CHANNEL 1
 #define RIGHT_ENABLE_CHANNEL 2
 #define MOTOR_PWM_RESOLUTION 8
-#define MOTOR_PWM_FREQ 1000
+#define MOTOR_PWM_FREQ 300
 
 #define JOYSTICKX 18
 #define JOYSTICKY 17
@@ -769,7 +769,7 @@ typedef unsigned long ulong;
 #define JOY_VCC 3.3
 #define JOY_ADC_MAX 4095
 #define JOY_THRESHOLD 0.15
-#define MIN_SPEED 70
+#define MIN_SPEED 50
 #define PARKING_MIN_SPEED 30
 
 #define BUTTON_NEXT 14
