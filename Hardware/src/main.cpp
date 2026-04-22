@@ -1418,6 +1418,7 @@ class MyCallbacks : public BLECharacteristicCallbacks
     lastBLECommand = millis();
     Serial.printf("BLE received: %s\n", value.c_str());
 
+    /* 
     if (value == "F")
     {
       setLeftSpeed(200);
@@ -1454,8 +1455,8 @@ class MyCallbacks : public BLECharacteristicCallbacks
     else if (value == "S")
     {
       stopMotors();
-    }
-    else if (value == "X")
+    }*/
+    if (value == "X")
     {
       rgb.setPixelColor(0, rgb.Color(0, 255, 0));
       rgb.show();
