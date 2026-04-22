@@ -1380,9 +1380,9 @@ void driveFromJoystick()
   // Kickstart
   if (motorsWereStopped)
   {
-    setLeftSpeed(120);
-    setRightSpeed(120);
-    delay(15);
+    setLeftSpeed(255);
+    setRightSpeed(255);
+    delay(40);
     motorsWereStopped = false;
   }
 
