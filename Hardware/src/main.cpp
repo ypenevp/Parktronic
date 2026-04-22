@@ -1406,6 +1406,69 @@ class MyServerCallbacks : public BLEServerCallbacks
   }
 };
 
+// class MyCallbacks : public BLECharacteristicCallbacks
+// {
+//   void onWrite(BLECharacteristic *pCharacteristic)
+//   {
+//     std::string value = pCharacteristic->getValue();
+//     if (value.empty())
+//       return;
+
+//     lastBLECommand = millis();
+//     Serial.printf("BLE received: %s\n", value.c_str());
+
+//     /* 
+//     if (value == "F")
+//     {
+//       setLeftSpeed(200);
+//       setRightSpeed(200);
+//       moveForward();
+//     }
+//     else if (value == "B")
+//     {
+//       if (distance > 0 && distance < REDSOUND)
+//       {
+//         stopMotors();
+//         return;
+//       }
+//       setLeftSpeed(200);
+//       setRightSpeed(200);
+//       moveBackward();
+//     }
+//     else if (value == "L")
+//     {
+//       motorSpeedLeft = 80;
+//       motorSpeedRight = 200;
+//       setLeftSpeed(motorSpeedLeft);
+//       setRightSpeed(motorSpeedRight);
+//       moveForward();
+//     }
+//     else if (value == "R")
+//     {
+//       motorSpeedLeft = 200;
+//       motorSpeedRight = 80;
+//       setLeftSpeed(motorSpeedLeft);
+//       setRightSpeed(motorSpeedRight);
+//       moveForward();
+//     }
+//     else if (value == "S")
+//     {
+//       stopMotors();
+//     }*/
+//     if (value == "X")
+//     {
+//       rgb.setPixelColor(0, rgb.Color(0, 255, 0));
+//       rgb.show();
+//     }
+//     else if (value == "Y")
+//     {
+//       rgb.setPixelColor(0, rgb.Color(0, 0, 255));
+//       rgb.show();
+//     }
+//   }
+// };
+
+
 class MyCallbacks : public BLECharacteristicCallbacks
 {
   void onWrite(BLECharacteristic *pCharacteristic)
@@ -1417,7 +1480,6 @@ class MyCallbacks : public BLECharacteristicCallbacks
     lastBLECommand = millis();
     Serial.printf("BLE received: %s\n", value.c_str());
 
-    /* 
     if (value == "F")
     {
       setLeftSpeed(200);
@@ -1454,8 +1516,8 @@ class MyCallbacks : public BLECharacteristicCallbacks
     else if (value == "S")
     {
       stopMotors();
-    }*/
-    if (value == "X")
+    }
+    else if (value == "X")
     {
       rgb.setPixelColor(0, rgb.Color(0, 255, 0));
       rgb.show();
