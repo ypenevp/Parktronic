@@ -151,10 +151,39 @@ const CHARACTERISTIC_UUID = 'abcd1234-5678-90ab-cdef-1234567890ab';
 
 const COMMANDS: Record<string, string> = {
   F: 'Rg==',
+  B: 'Qg==',
+  L: 'TA==',
+  R: 'Ug==',
   S: 'Uw==',
   X: 'WA==',
   Y: 'WQ=='
 };
+
+function StaticCarButton({
+                           label, cmd, size = 'normal', onPressIn, onPressOut,
+                           styleColor = '#1E88E5', pressedColor = '#0D47A1'
+                         }: {
+  label: string; cmd: string; size?: 'normal' | 'large' | 'wide';
+  onPressIn: (cmd: string) => void; onPressOut: () => void;
+  styleColor?: string; pressedColor?: string;
+}) {
+  let w = 80; let h = 70;
+  if (size === 'large') { w = 100; h = 85; }
+  else if (size === 'wide') { w = 200; h = 60; }
+
+  return (
+      <Pressable
+          style={({ pressed }) => [
+            styles.button,
+            { width: w, height: h, backgroundColor: pressed ? pressedColor : styleColor }
+          ]}
+          onPressIn={() => onPressIn(cmd)}
+          onPressOut={() => onPressOut()}
+      >
+        <Text style={styles.buttonText}>{label}</Text>
+      </Pressable>
+  );
+}
 
 export default function HomeScreen() {
   const [device, setDevice] = useState<Device | null>(null);
@@ -226,44 +255,53 @@ export default function HomeScreen() {
           SERVICE_UUID, CHARACTERISTIC_UUID, b64
       );
     } catch (e) {
-      console.log('Error sending command:', String(e));
+      console.log('Sending error:', String(e));
     }
   };
 
+  const startCommand = (cmd: string) => sendCommand(COMMANDS[cmd]);
+  const stopCommand = () => sendCommand(COMMANDS.S);
+
   return (
       <View style={styles.container}>
-        <Text style={styles.title}>ESP32 Car (NO ANIMATIONS)</Text>
+        <View style={styles.header}>
+          <Text style={styles.title}>Parktronic 3000</Text>
 
-        <View style={styles.statusRow}>
-          <View style={[styles.dot, { backgroundColor: connected ? '#4CAF50' : '#F44336' }]} />
-          <Text style={styles.statusText}>{status}</Text>
+          <View style={styles.statusRow}>
+            <View style={[styles.dot, { backgroundColor: connected ? '#4CAF50' : '#F44336' }]} />
+            <Text style={styles.statusText}>{status}</Text>
+          </View>
         </View>
 
         <View style={styles.controls}>
+          <StaticCarButton label="▲" cmd="F" size="large" onPressIn={startCommand} onPressOut={stopCommand} />
 
-          <Pressable
-              style={({ pressed }) => [
-                styles.button,
-                { backgroundColor: pressed ? '#0D47A1' : '#1E88E5' }
-              ]}
-              onPressIn={() => sendCommand(COMMANDS.F)}
-              onPressOut={() => sendCommand(COMMANDS.S)}
-          >
-            <Text style={styles.buttonText}>НАПРЕД (F)</Text>
-          </Pressable>
+          <View style={styles.row}>
+            <StaticCarButton label="◄" cmd="L" size="large" onPressIn={startCommand} onPressOut={stopCommand} />
 
+            <Pressable
+                style={({ pressed }) => [styles.stopButton, { backgroundColor: pressed ? '#b71c1c' : '#D32F2F' }]}
+                onPress={stopCommand}
+            >
+              <Text style={styles.stopText}>■</Text>
+            </Pressable>
 
-          <Pressable
-              style={({ pressed }) => [
-                styles.button,
-                { backgroundColor: pressed ? '#388E3C' : '#4CAF50', marginTop: 40 }
-              ]}
-              onPressIn={() => sendCommand(COMMANDS.X)}
+            <StaticCarButton label="►" cmd="R" size="large" onPressIn={startCommand} onPressOut={stopCommand} />
+          </View>
+
+          <StaticCarButton label="▼" cmd="B" size="large" onPressIn={startCommand} onPressOut={stopCommand} />
+        </View>
+
+        <View style={{ marginTop: 50 }}>
+          <StaticCarButton
+              label="TEST LED"
+              cmd="X"
+              size="wide"
+              styleColor="#4CAF50"
+              pressedColor="#388E3C"
+              onPressIn={startCommand}
               onPressOut={() => sendCommand(COMMANDS.Y)}
-          >
-            <Text style={styles.buttonText}>TEST LED</Text>
-          </Pressable>
-
+          />
         </View>
       </View>
   );
@@ -274,19 +312,23 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#0A0A0A',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'space-around',
+    paddingVertical: 40
+  },
+  header: {
+    alignItems: 'center',
+    gap: 10,
   },
   title: {
     color: '#FFFFFF',
-    fontSize: 22,
+    fontSize: 28,
     fontWeight: 'bold',
-    marginBottom: 10
+    letterSpacing: 3,
   },
   statusRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginBottom: 50
   },
   dot: {
     width: 12,
@@ -299,19 +341,38 @@ const styles = StyleSheet.create({
   },
   controls: {
     alignItems: 'center',
-    gap: 20,
+    gap: 16,
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
   },
   button: {
-    width: 200,
-    height: 80,
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#1E88E5',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
     elevation: 8,
   },
   buttonText: {
     color: '#FFFFFF',
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: 'bold',
+  },
+  stopButton: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 8,
+  },
+  stopText: {
+    color: '#ffffff',
+    fontSize: 24,
   }
 });
