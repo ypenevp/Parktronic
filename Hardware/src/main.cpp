@@ -1297,19 +1297,23 @@ void driveFromJoystick()
   bool goingBackward = false;
 
   if (autopilotActive && distance > 0)
-  {
-    float stopDist = getDynamicStopDistance();
-    float resumeDist = stopDist + 1.0;
+{
+  float stopDist = getDynamicStopDistance();
+  float resumeDist = stopDist + 6.0;
 
-    if (distance <= stopDist)
-      blockedForward = true;
-    else if (distance >= resumeDist)
-      blockedForward = false;
+  if (distance <= stopDist)
+  {
+    blockedForward = true;
   }
-  else
+  if (distance >= resumeDist)
   {
     blockedForward = false;
   }
+}
+else
+{
+  blockedForward = false;
+}
 
   if (blockedForward && yOffset > JOY_THRESHOLD)
   {
