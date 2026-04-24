@@ -263,6 +263,7 @@ const COMMANDS: Record<string, string> = {
 export default function HomeScreen() {
   const [device, setDevice] = useState<Device | null>(null);
   const [connected, setConnected] = useState(false);
+  const [scanning, setScanning] = useState(false);
   const [mode, setMode] = useState<'arrows' | 'joystick'>('arrows');
 
   // Lock landscape
@@ -273,7 +274,7 @@ export default function HomeScreen() {
     };
   }, []);
 
-  // Permissions + scan + connect
+  // Permissions + initial scan
   useEffect(() => {
     (async () => {
       if (Platform.OS === 'android') {
@@ -291,8 +292,10 @@ export default function HomeScreen() {
   }, []);
 
   const scanAndConnect = () => {
+    if (scanning || connected) return;
+    setScanning(true);
     bleManager.startDeviceScan(null, null, async (error, scanned) => {
-      if (error) return;
+      if (error) { setScanning(false); return; }
       if (scanned && scanned.name && scanned.name.includes('ESP32')) {
         bleManager.stopDeviceScan();
         try {
@@ -301,8 +304,25 @@ export default function HomeScreen() {
           setDevice(d);
           setConnected(true);
         } catch (e) {}
+        setScanning(false);
       }
     });
+  };
+
+  const disconnect = async () => {
+    try {
+      if (device) {
+        await device.cancelConnection();
+      }
+    } catch (e) {}
+    setDevice(null);
+    setConnected(false);
+    setScanning(false);
+  };
+
+  const toggleConnection = () => {
+    if (connected) disconnect();
+    else scanAndConnect();
   };
 
   const sendCommand = async (cmd: string) => {
@@ -338,20 +358,22 @@ export default function HomeScreen() {
         }}>
           <View style={{
             width: 10, height: 10, borderRadius: 999,
-            backgroundColor: connected ? '#22c55e' : '#ef4444',
-            shadowColor: connected ? '#22c55e' : '#ef4444', shadowOpacity: 1, shadowRadius: 6,
+            backgroundColor: connected ? '#22c55e' : scanning ? '#f59e0b' : '#ef4444',
+            shadowColor: connected ? '#22c55e' : scanning ? '#f59e0b' : '#ef4444', shadowOpacity: 1, shadowRadius: 6,
           }} />
           <Text style={{ color: '#e2e8f0', fontSize: 11, fontWeight: '700', letterSpacing: 1.5 }}>
-            {connected ? 'CONNECTED' : 'SEARCHING'}
+            {connected ? 'CONNECTED' : scanning ? 'SEARCHING' : 'OFFLINE'}
           </Text>
         </View>
       </View>
 
       {/* MAIN ROW */}
       <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-        {/* LEFT: Controls */}
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-          {mode === 'arrows' ? <Arrows onPress={sendCommand} /> : <Joystick onMove={sendCommand} />}
+        {/* LEFT: Controls (slightly shifted left) */}
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingLeft: 0, paddingRight: 40 }}>
+          <View style={{ marginLeft: -30 }}>
+            {mode === 'arrows' ? <Arrows onPress={sendCommand} /> : <Joystick onMove={sendCommand} />}
+          </View>
         </View>
 
         {/* RIGHT: Actions + Mode */}
@@ -367,13 +389,31 @@ export default function HomeScreen() {
               onPress={() => sendCommand('T')}
               style={({ pressed }) => ({
                 backgroundColor: pressed ? '#16a34a' : '#22c55e',
-                paddingVertical: 16, borderRadius: 12, alignItems: 'center',
+                paddingVertical: 14, borderRadius: 12, alignItems: 'center',
                 shadowColor: '#22c55e', shadowOpacity: 0.6, shadowRadius: 12, shadowOffset: { width: 0, height: 4 },
                 elevation: 6,
               })}
             >
               <Text style={{ color: '#ffffff', fontSize: 18, fontWeight: '900', letterSpacing: 3 }}>
                 TEST LED
+              </Text>
+            </Pressable>
+
+            <Pressable
+              onPress={toggleConnection}
+              style={({ pressed }) => ({
+                marginTop: 10,
+                backgroundColor: connected
+                  ? (pressed ? '#b91c1c' : '#ef4444')
+                  : (pressed ? '#1d4ed8' : '#3b82f6'),
+                paddingVertical: 14, borderRadius: 12, alignItems: 'center',
+                shadowColor: connected ? '#ef4444' : '#3b82f6',
+                shadowOpacity: 0.6, shadowRadius: 12, shadowOffset: { width: 0, height: 4 },
+                elevation: 6,
+              })}
+            >
+              <Text style={{ color: '#ffffff', fontSize: 18, fontWeight: '900', letterSpacing: 3 }}>
+                {connected ? 'DISCONNECT' : scanning ? 'SEARCHING...' : 'CONNECT'}
               </Text>
             </Pressable>
           </View>
