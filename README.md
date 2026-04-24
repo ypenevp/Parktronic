@@ -22,26 +22,29 @@ The system features a small OLED display with two pages — a **Home** page show
 ---
 
 ## Features
- 
-- **Ultrasonic distance sensing** — HC-SR04 measures distance to the nearest obstacle in real time
+
+- **Ultrasonic distance sensing** — HC-SR04 measures the distance to the nearest obstacle in real time
 - **4-zone proximity indication:**
   - `> 16 cm` — Clear (no indication)
   - `11–16 cm` — Approach (green LED, slow beep)
   - `5.5–11 cm` — Warning (yellow LED, medium beep)
   - `< 5.5 cm` — Stop (red LED, fast/continuous beep)
-- **OLED Display (128×64):**
-  - **Home page** — shows live distance, status text, and a fill bar
-  - **Settings page** — 4 configurable indication modes
-- **Settings modes (selectable via display):**
-  - Light & Sound (both LEDs and buzzer)
-  - Light Only
-  - Sound Only
-  - None(Only on display)
-- **2-button navigation:**
-  - `NEXT` — cycles through options on the current page
-  - `OK` — activates the highlighted option or navigates between pages
-- **Joystick control** — control the car with analog joystick
- 
+- **OLED display interface:**
+  - **Home page** — displays live distance, status text, and a proximity fill bar
+  - **Settings page** — four configurable indication modes
+- **Indication modes (selectable via display):**
+  - Light & Sound (LEDs and buzzer active simultaneously)
+  - Light Only (visual indication only)
+  - Sound Only (audible indication only)
+  - None (distance and status shown on display only)
+- **Special modes (selectable via display):**
+  - **Autopilot** — monitors the rear of the vehicle and automatically halts movement upon detecting collision
+  - **Parking Mode** — reduces drive speed to low, precise levels for tight manoeuvres.
+- **2-button display navigation:**
+  - `NEXT` — cycles through the available options on the current page
+  - `OK` — confirms the highlighted option
+- **Joystick control** — full directional control of the car via an analog joystick
+- **Bluetooth control** — wireless control from a mobile device; automatically disables joystick input while connected
 ---
 
 ## Schematic
@@ -72,8 +75,6 @@ The system features a small OLED display with two pages — a **Home** page show
 
 ## Future Improvements
  
-- **Bluetooth Low Energy (BLE)** — remote control via commands (`F`, `B`, `L`, `R`, `S`)
-- **Automatic stop** — blocks forward movement when obstacle is closer than 2.4 cm
 - Add a camera module (e.g. ESP32-CAM) for live video feed via Bluethooth
  
 ---
