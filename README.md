@@ -44,12 +44,16 @@ The system features a small OLED display with two pages — a **Home** page show
  
 ---
 
-
 ## Schematic
 
-
 ![Modules architecture](docx/circuit_image1.png)
+
+---
+
+## The car
+
 ![Modules architecture](docx/image.png)
+![Modules architecture](docx/car.png)
 
 ---
 
