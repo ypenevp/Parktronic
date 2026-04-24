@@ -4,12 +4,14 @@
 ---
 
 ## Table of Contents
-- [Introduction](#-introduction)
-- [Features](#-features)
-- [Hardware Schematics](#-schematic)
-- [Tech Stack](#-tech-stack)
-- [Future Improvements](#-future-improvements)
-- [License](#-license)
+- [Introduction](#introduction)
+- [Features](#features)
+- [Hardware Schematics](#schematic)
+- [The car](#the-car)
+- [OLED Display](#oled-display)
+- [Tech Stack](#tech-stack)
+- [Future Improvements](#future-improvements)
+- [License](#license)
 
 ---
 
