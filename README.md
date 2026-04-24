@@ -60,6 +60,12 @@ The system features a small OLED display with two pages — a **Home** page show
 
 ---
 
+## OLED Display
+
+![Modules architecture](docx/display.png)
+
+---
+
 ## Tech Stack
 
 | Layer | Technology |
