@@ -16,11 +16,13 @@ typedef unsigned long ulong;
 
 #define BUZZER 5
 
-#define GREEN_LED 35
-#define YELLOW_LED 36
-#define RED_LED 37
+// using temporary ESP32-S3 DevKit-N16R8 CAM:
 
-#define RGB_PIN 38
+#define GREEN_LED 38  // 35
+#define YELLOW_LED 39 // 36
+#define RED_LED 40    // 37
+
+#define RGB_PIN 48 // 38
 #define RGB_COUNT 1
 
 #define SCREEN_WIDTH 128
@@ -697,78 +699,79 @@ class MyServerCallbacks : public BLEServerCallbacks
 };
 class MyCallbacks : public BLECharacteristicCallbacks
 {
-  void onWrite(BLECharacteristic *pCharacteristic)
-  {
-    std::string value = pCharacteristic->getValue();
-    if (value.empty())
-      return;
+     void onWrite(BLECharacteristic *pCharacteristic)
+     {
+       std::string value = pCharacteristic->getValue();
+       if (value.empty())
+         return;
 
-    lastBLECommand = millis();
-    int maxSpeed = parkingModeActive ? PARKING_MAX_SPEED : 200;
-    int turnSpeedFast = parkingModeActive ? PARKING_MAX_SPEED : 200;
-    int turnSpeedSlow = parkingModeActive ? 0 : 80;
+       lastBLECommand = millis();
 
-    if (value == "F")
-    {
-      setLeftSpeed(255);
-      setRightSpeed(255);
-      delay(40);
+       int maxSpeed = parkingModeActive ? PARKING_MAX_SPEED : 255;
 
-      setLeftSpeed(maxSpeed);
-      setRightSpeed(maxSpeed);
-      moveBackward();
-    }
-    else if (value == "B")
-    {
-      if (distance > 0 && distance < REDSOUND)
-      {
-        stopMotors();
-        return;
-      }
+       int turnSpeedFast = maxSpeed;
+       int turnSpeedSlow = parkingModeActive ? 0 : 0;
 
-      setLeftSpeed(255);
-      setRightSpeed(255);
-      delay(40);
+       float stopDist = getDynamicStopDistance();
+       bool isBlockedForward = (autopilotActive && distance > 0 && distance <= stopDist);
 
-      setLeftSpeed(maxSpeed);
-      setRightSpeed(maxSpeed);
-      moveForward();
-    }
-    else if (value == "L")
-    {
-      setLeftSpeed(255);
-      setRightSpeed(255);
-      delay(40);
+       if (isBlockedForward && (value == "F" || value == "L" || value == "R" || value == "FL" || value == "FR"))
+       {
+         stopMotors();
+         return;
+       }
 
-      setLeftSpeed(turnSpeedSlow);
-      setRightSpeed(turnSpeedFast);
-      moveBackward();
-    }
-    else if (value == "R")
-    {
-      setLeftSpeed(255);
-      setRightSpeed(255);
-      delay(40);
-
-      setLeftSpeed(turnSpeedFast);
-      setRightSpeed(turnSpeedSlow);
-      moveBackward();
-    }
-    else if (value == "S")
-    {
-      stopMotors();
-    }
-    else if (value == "X")
-    {
-      rgb.setPixelColor(0, rgb.Color(0, 255, 0));
-      rgb.show();
-    }
-    else if (value == "Y")
-    {
-      rgb.setPixelColor(0, rgb.Color(0, 0, 255));
-      rgb.show();
-    }
-  }
+       if (value == "F")
+       {
+         moveBackward();
+         setLeftSpeed(255); setRightSpeed(255); delay(40);
+         setLeftSpeed(maxSpeed); setRightSpeed(maxSpeed);
+       }
+       else if (value == "B")
+       {
+         moveForward();
+         setLeftSpeed(255); setRightSpeed(255); delay(40);
+         setLeftSpeed(maxSpeed); setRightSpeed(maxSpeed);
+       }
+       else if (value == "L" || value == "FL")
+       {
+         moveBackward();
+         setLeftSpeed(255); setRightSpeed(255); delay(40);
+         setLeftSpeed(turnSpeedSlow); setRightSpeed(turnSpeedFast);
+       }
+       else if (value == "R" || value == "FR")
+       {
+         moveBackward();
+         setLeftSpeed(255); setRightSpeed(255); delay(40);
+         setLeftSpeed(turnSpeedFast); setRightSpeed(turnSpeedSlow);
+       }
+       else if (value == "BL")
+       {
+         moveForward();
+         setLeftSpeed(255); setRightSpeed(255); delay(40);
+         setLeftSpeed(turnSpeedSlow); setRightSpeed(turnSpeedFast);
+       }
+       else if (value == "BR")
+       {
+         moveForward();
+         setLeftSpeed(255); setRightSpeed(255); delay(40);
+         setLeftSpeed(turnSpeedFast); setRightSpeed(turnSpeedSlow);
+       }
+       else if (value == "S")
+       {
+         stopMotors();
+       }
+       else if (value == "X" || value == "T")
+       {
+         rgb.setPixelColor(0, rgb.Color(0, 255, 0));
+         rgb.show();
+       }
+       else if (value == "Y")
+       {
+         rgb.setPixelColor(0, rgb.Color(0, 0, 255));
+         rgb.show();
+       }
+     }
 };
 
 void setup()
@@ -884,4 +887,19 @@ void loop()
 
   if (!bleControlActive)
     driveFromJoystick();
+
+  if (autopilotActive && distance > 0)
+  {
+    float stopDist = getDynamicStopDistance();
+
+    bool isMovingForward = (digitalRead(LEFTMOTORS2) == HIGH && digitalRead(RIGHTMOTORS2) == HIGH &&
+                            (motorSpeedLeft > 0 || motorSpeedRight > 0 || bleControlActive));
+
+    if (isMovingForward && distance <= stopDist)
+    {
+      stopMotors();
+      if (bleControlActive)
+        lastBLECommand = 0;
+    }
+  }
 }
