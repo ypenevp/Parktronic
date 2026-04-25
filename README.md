@@ -68,6 +68,12 @@ The system features a small OLED display with two pages — a **Home** page show
 
 ---
 
+## Mobile app control
+
+![Modules architecture](docx/mobile_app.jpg)
+
+---
+
 ## Tech Stack
 
 | Layer | Technology |
