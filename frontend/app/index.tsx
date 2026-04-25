@@ -252,12 +252,16 @@ const SERVICE_UUID = '12345678-1234-1234-1234-123456789abc';
 const CHARACTERISTIC_UUID = 'abcd1234-5678-90ab-cdef-1234567890ab';
 
 const COMMANDS: Record<string, string> = {
-  F: 'Rg==', // Forward
-  B: 'Qg==', // Back
-  L: 'TA==', // Left
-  R: 'Ug==', // Right
-  S: 'Uw==', // Stop
-  T: 'VA==', // Test LED
+  F: 'Rg==',
+  B: 'Qg==',
+  L: 'TA==',
+  R: 'Ug==',
+  FL: 'Rkw=',
+  FR: 'RlI=',
+  BL: 'Qkw=',
+  BR: 'QlI=',
+  S: 'Uw==',
+  T: 'VA==',
 };
 
 export default function HomeScreen() {
@@ -266,7 +270,6 @@ export default function HomeScreen() {
   const [scanning, setScanning] = useState(false);
   const [mode, setMode] = useState<'arrows' | 'joystick'>('arrows');
 
-  // Lock landscape
   useEffect(() => {
     ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE);
     return () => {
@@ -274,7 +277,6 @@ export default function HomeScreen() {
     };
   }, []);
 
-  // Permissions + initial scan
   useEffect(() => {
     (async () => {
       if (Platform.OS === 'android') {
@@ -336,7 +338,6 @@ export default function HomeScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: '#05080f', paddingHorizontal: 20, paddingVertical: 12 }}>
-      {/* HEADER */}
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
         <View>
           <Text style={{
@@ -367,16 +368,13 @@ export default function HomeScreen() {
         </View>
       </View>
 
-      {/* MAIN ROW */}
       <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-        {/* LEFT: Controls (slightly shifted left) */}
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingLeft: 0, paddingRight: 40 }}>
           <View style={{ marginLeft: -30 }}>
             {mode === 'arrows' ? <Arrows onPress={sendCommand} /> : <Joystick onMove={sendCommand} />}
           </View>
         </View>
 
-        {/* RIGHT: Actions + Mode */}
         <View style={{ width: 260, alignItems: 'stretch', gap: 12 }}>
           <View style={{
             backgroundColor: 'rgba(15,23,42,0.6)', borderRadius: 18,
@@ -439,7 +437,6 @@ export default function HomeScreen() {
   );
 }
 
-/* ---------- Arrows (no center stop) ---------- */
 function Arrows({ onPress }: { onPress: (c: string) => void }) {
   const btn = (label: string, cmd: string) => (
     <Pressable
@@ -469,7 +466,6 @@ function Arrows({ onPress }: { onPress: (c: string) => void }) {
   );
 }
 
-/* ---------- Joystick ---------- */
 function Joystick({ onMove }: { onMove: (c: string) => void }) {
   const SIZE = 200;
   const KNOB = 70;
@@ -479,16 +475,28 @@ function Joystick({ onMove }: { onMove: (c: string) => void }) {
 
   const dispatch = (dx: number, dy: number) => {
     const dist = Math.sqrt(dx * dx + dy * dy);
-    if (dist < 25) { if (lastCmd.current !== 'S') { onMove('S'); lastCmd.current = 'S'; } return; }
+    if (dist < 25) {
+      if (lastCmd.current !== 'S') { onMove('S'); lastCmd.current = 'S'; }
+      return;
+    }
+
     const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
     let cmd: string;
-    if (angle >= -45 && angle < 45) cmd = 'R';
-    else if (angle >= 45 && angle < 135) cmd = 'B';
-    else if (angle >= -135 && angle < -45) cmd = 'F';
-    else cmd = 'L';
-    if (cmd !== lastCmd.current) { onMove(cmd); lastCmd.current = cmd; }
-  };
 
+    if (angle >= -22.5 && angle < 22.5) cmd = 'R';
+    else if (angle >= 22.5 && angle < 67.5) cmd = 'BR';
+    else if (angle >= 67.5 && angle < 112.5) cmd = 'B';
+    else if (angle >= 112.5 && angle < 157.5) cmd = 'BL';
+    else if (angle >= 157.5 || angle < -157.5) cmd = 'L';
+    else if (angle >= -157.5 && angle < -112.5) cmd = 'FL';
+    else if (angle >= -112.5 && angle < -67.5) cmd = 'F';
+    else cmd = 'FR';
+
+    if (cmd !== lastCmd.current) {
+      onMove(cmd);
+      lastCmd.current = cmd;
+    }
+  };
   const responder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
