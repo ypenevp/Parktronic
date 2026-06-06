@@ -1,11 +1,5 @@
 # Parktronik 3000
 
-<!-- [![Framework](https://img.shields.io/badge/framework-Arduino-teal.svg)](https://www.arduino.cc/)
-[![Platform](https://img.shields.io/badge/platform-ESP32--S3-blue.svg)](https://www.espressif.com/)
-[![Mobile](https://img.shields.io/badge/mobile-Expo%20%2F%20React%20Native-9cf.svg)](https://expo.dev/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) -->
-
-
 [![Framework](https://img.shields.io/badge/framework-Arduino-00979D.svg)](https://www.arduino.cc/)
 [![Board](https://img.shields.io/badge/board-ESP32--S3-E7352C.svg)](https://www.espressif.com/)
 [![Runtime](https://img.shields.io/badge/runtime-Expo-4630EB.svg)](https://expo.dev/)
@@ -99,4 +93,5 @@ Beyond basic sensing, Parktronik supports both manual joystick control and wirel
 ---
 
 ## License
+
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.

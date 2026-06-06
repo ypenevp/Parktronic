@@ -69,7 +69,6 @@ typedef unsigned long ulong;
 BLEServer *pServer = nullptr;
 bool deviceConnected = false;
 ulong lastBLECommand = 0;
-bool bleControlActive = false;
 
 const float JOY_MID_X = 1.61;
 const float JOY_MID_Y = 1.56;
@@ -102,10 +101,11 @@ Page currentPage = PAGE_HOME;
 
 int homeSelectedIndex = 0;
 int settingsSelectedIndex = 0;
-int settingsModeActive = 3;
 
-bool parkingModeActive = false;
-bool autopilotActive = false;
+volatile bool bleControlActive = false;
+volatile bool parkingModeActive = false;
+volatile bool autopilotActive = false;
+volatile int settingsModeActive = 3;
 
 bool lastNextState = false;
 bool lastOkState = false;
@@ -699,79 +699,136 @@ class MyServerCallbacks : public BLEServerCallbacks
 };
 class MyCallbacks : public BLECharacteristicCallbacks
 {
-     void onWrite(BLECharacteristic *pCharacteristic)
-     {
-       std::string value = pCharacteristic->getValue();
-       if (value.empty())
-         return;
+  void onWrite(BLECharacteristic *pCharacteristic)
+  {
+    std::string value = pCharacteristic->getValue();
+    if (value.empty())
+      return;
 
-       lastBLECommand = millis();
+    lastBLECommand = millis();
 
-       int maxSpeed = parkingModeActive ? PARKING_MAX_SPEED : 255;
+    int maxSpeed = parkingModeActive ? PARKING_MAX_SPEED : 255;
+    int turnSpeedSlow = parkingModeActive ? PARKING_MIN_SPEED : 0;
 
-       int turnSpeedFast = maxSpeed;
-       int turnSpeedSlow = parkingModeActive ? 0 : 0;
+    float stopDist = getDynamicStopDistance();
 
-       float stopDist = getDynamicStopDistance();
-       bool isBlockedForward = (autopilotActive && distance > 0 && distance <= stopDist);
+    if (autopilotActive && distance > 0 && distance <= stopDist)
+    {
+      if (value == "F" || value == "L" || value == "R" || value == "FL" || value == "FR")
+      {
+        stopMotors();
+        motorSpeedLeft = 0;
+        motorSpeedRight = 0;
+        return;
+      }
+    }
 
-       if (isBlockedForward && (value == "F" || value == "L" || value == "R" || value == "FL" || value == "FR"))
-       {
-         stopMotors();
-         return;
-       }
-
-       if (value == "F")
-       {
-         moveBackward();
-         setLeftSpeed(255); setRightSpeed(255); delay(40);
-         setLeftSpeed(maxSpeed); setRightSpeed(maxSpeed);
-       }
-       else if (value == "B")
-       {
-         moveForward();
-         setLeftSpeed(255); setRightSpeed(255); delay(40);
-         setLeftSpeed(maxSpeed); setRightSpeed(maxSpeed);
-       }
-       else if (value == "L" || value == "FL")
-       {
-         moveBackward();
-         setLeftSpeed(255); setRightSpeed(255); delay(40);
-         setLeftSpeed(turnSpeedSlow); setRightSpeed(turnSpeedFast);
-       }
-       else if (value == "R" || value == "FR")
-       {
-         moveBackward();
-         setLeftSpeed(255); setRightSpeed(255); delay(40);
-         setLeftSpeed(turnSpeedFast); setRightSpeed(turnSpeedSlow);
-       }
-       else if (value == "BL")
-       {
-         moveForward();
-         setLeftSpeed(255); setRightSpeed(255); delay(40);
-         setLeftSpeed(turnSpeedSlow); setRightSpeed(turnSpeedFast);
-       }
-       else if (value == "BR")
-       {
-         moveForward();
-         setLeftSpeed(255); setRightSpeed(255); delay(40);
-         setLeftSpeed(turnSpeedFast); setRightSpeed(turnSpeedSlow);
-       }
-       else if (value == "S")
-       {
-         stopMotors();
-       }
-       else if (value == "X" || value == "T")
-       {
-         rgb.setPixelColor(0, rgb.Color(0, 255, 0));
-         rgb.show();
-       }
-       else if (value == "Y")
-       {
-         rgb.setPixelColor(0, rgb.Color(0, 0, 255));
-         rgb.show();
-       }
-     }
+    if (value == "F")
+    {
+      motorSpeedLeft = maxSpeed;
+      motorSpeedRight = maxSpeed;
+      moveBackward();
+      setLeftSpeed(255);
+      setRightSpeed(255);
+      delay(40);
+      setLeftSpeed(maxSpeed);
+      setRightSpeed(maxSpeed);
+    }
+    else if (value == "B")
+    {
+      motorSpeedLeft = maxSpeed;
+      motorSpeedRight = maxSpeed;
+      moveForward();
+      setLeftSpeed(255);
+      setRightSpeed(255);
+      delay(40);
+      setLeftSpeed(maxSpeed);
+      setRightSpeed(maxSpeed);
+    }
+    else if (value == "L" || value == "FL")
+    {
+      motorSpeedLeft = turnSpeedSlow;
+      motorSpeedRight = maxSpeed;
+      moveBackward();
+      setLeftSpeed(255);
+      setRightSpeed(255);
+      delay(40);
+      setLeftSpeed(turnSpeedSlow);
+      setRightSpeed(maxSpeed);
+    }
+    else if (value == "R" || value == "FR")
+    {
+      motorSpeedLeft = maxSpeed;
+      motorSpeedRight = turnSpeedSlow;
+      moveBackward();
+      setLeftSpeed(255);
+      setRightSpeed(255);
+      delay(40);
+      setLeftSpeed(maxSpeed);
+      setRightSpeed(turnSpeedSlow);
+    }
+    else if (value == "BL")
+    {
+      motorSpeedLeft = turnSpeedSlow;
+      motorSpeedRight = maxSpeed;
+      moveForward();
+      setLeftSpeed(255);
+      setRightSpeed(255);
+      delay(40);
+      setLeftSpeed(turnSpeedSlow);
+      setRightSpeed(maxSpeed);
+    }
+    else if (value == "BR")
+    {
+      motorSpeedLeft = maxSpeed;
+      motorSpeedRight = turnSpeedSlow;
+      moveForward();
+      setLeftSpeed(255);
+      setRightSpeed(255);
+      delay(40);
+      setLeftSpeed(maxSpeed);
+      setRightSpeed(turnSpeedSlow);
+    }
+    else if (value == "S")
+    {
+      stopMotors();
+      motorSpeedLeft = 0;
+      motorSpeedRight = 0;
+    }
+    else if (value == "A")
+    {
+      autopilotActive = !autopilotActive;
+      if (autopilotActive)
+      {
+        buzzerTone(1800);
+        delay(60);
+        buzzerTone(2400);
+        delay(60);
+        buzzerOff();
+      }
+      else
+      {
+        buzzerTone(1000);
+        delay(80);
+        buzzerOff();
+      }
+    }
+    else if (value == "P")
+    {
+      parkingModeActive = !parkingModeActive;
+      if (parkingModeActive)
+      {
+        buzzerTone(1500);
+        delay(80);
+        buzzerOff();
+        settingsModeActive = 0;
+      }
+      else
+      {
+        settingsModeActive = 3;
+      }
+    }
+  }
 };
 
 void setup()
@@ -885,21 +942,23 @@ void loop()
     renderCurrentPage();
   }
 
-  if (!bleControlActive)
-    driveFromJoystick();
-
   if (autopilotActive && distance > 0)
   {
     float stopDist = getDynamicStopDistance();
 
-    bool isMovingForward = (digitalRead(LEFTMOTORS2) == HIGH && digitalRead(RIGHTMOTORS2) == HIGH &&
-                            (motorSpeedLeft > 0 || motorSpeedRight > 0 || bleControlActive));
+    bool isMovingForward = (digitalRead(LEFTMOTORS2) == HIGH &&
+                            digitalRead(RIGHTMOTORS2) == HIGH &&
+                            (motorSpeedLeft > 0 || motorSpeedRight > 0));
 
     if (isMovingForward && distance <= stopDist)
     {
       stopMotors();
+
       if (bleControlActive)
         lastBLECommand = 0;
     }
   }
+
+  if (!bleControlActive)
+    driveFromJoystick();
 }
